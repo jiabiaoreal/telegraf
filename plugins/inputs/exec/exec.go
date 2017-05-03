@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/kballard/go-shellquote"
@@ -17,7 +16,6 @@ import (
 	"github.com/influxdata/telegraf/internal"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"github.com/influxdata/telegraf/plugins/parsers"
-	"github.com/influxdata/telegraf/plugins/parsers/nagios"
 )
 
 const sampleConfig = `
@@ -64,26 +62,6 @@ type Runner interface {
 
 type CommandRunner struct{}
 
-func AddNagiosState(exitCode error, acc telegraf.Accumulator) error {
-	nagiosState := 0
-	if exitCode != nil {
-		exiterr, ok := exitCode.(*exec.ExitError)
-		if ok {
-			status, ok := exiterr.Sys().(syscall.WaitStatus)
-			if ok {
-				nagiosState = status.ExitStatus()
-			} else {
-				return fmt.Errorf("exec: unable to get nagios plugin exit code")
-			}
-		} else {
-			return fmt.Errorf("exec: unable to get nagios plugin exit code")
-		}
-	}
-	fields := map[string]interface{}{"state": nagiosState}
-	acc.AddFields("nagios_state", fields, nil)
-	return nil
-}
-
 func (c CommandRunner) Run(
 	e *Exec,
 	command string,
@@ -100,19 +78,8 @@ func (c CommandRunner) Run(
 	cmd.Stdout = &out
 
 	if err := internal.RunTimeout(cmd, e.Timeout.Duration); err != nil {
-		switch e.parser.(type) {
-		case *nagios.NagiosParser:
-			AddNagiosState(err, acc)
-		default:
-			return nil, fmt.Errorf("exec: %s for command '%s'", err, command)
-		}
-	} else {
-		switch e.parser.(type) {
-		case *nagios.NagiosParser:
-			AddNagiosState(nil, acc)
-		}
+		return nil, fmt.Errorf("exec: %s for command '%s'", err, command)
 	}
-
 	out = removeCarriageReturns(out)
 	return out.Bytes(), nil
 }

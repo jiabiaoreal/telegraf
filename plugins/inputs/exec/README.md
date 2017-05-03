@@ -99,15 +99,6 @@ and usage_busy. They will receive a timestamp at collection time.
 Each line must end in \n, just as the Influx line protocol does.
 
 
-### Example 3 - Graphite
-
-We can also change the data_format to "graphite" to use the metrics collecting scripts such as (compatible with graphite):
-
-* Nagios [Metrics Plugins](https://exchange.nagios.org/directory/Plugins)
-* Sensu [Metrics Plugins](https://github.com/sensu-plugins)
-
-In this example a script called /tmp/test.sh and a script called /tmp/test2.sh are configured for [[inputs.exec]] in graphite format.
-
 #### Configuration
 
 ```toml

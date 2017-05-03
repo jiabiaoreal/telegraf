@@ -5,11 +5,8 @@ import (
 
 	"github.com/influxdata/telegraf"
 
-	"github.com/influxdata/telegraf/plugins/parsers/collectd"
-	"github.com/influxdata/telegraf/plugins/parsers/graphite"
 	"github.com/influxdata/telegraf/plugins/parsers/influx"
 	"github.com/influxdata/telegraf/plugins/parsers/json"
-	"github.com/influxdata/telegraf/plugins/parsers/nagios"
 	"github.com/influxdata/telegraf/plugins/parsers/value"
 )
 
@@ -41,7 +38,7 @@ type Parser interface {
 // Config is a struct that covers the data types needed for all parser types,
 // and can be used to instantiate _any_ of the parsers.
 type Config struct {
-	// Dataformat can be one of: json, influx, graphite, value, nagios
+	// Dataformat can be one of: json, influx, value
 	DataFormat string
 
 	// Separator only applied to Graphite data.
@@ -81,14 +78,6 @@ func NewParser(config *Config) (Parser, error) {
 			config.DataType, config.DefaultTags)
 	case "influx":
 		parser, err = NewInfluxParser()
-	case "nagios":
-		parser, err = NewNagiosParser()
-	case "graphite":
-		parser, err = NewGraphiteParser(config.Separator,
-			config.Templates, config.DefaultTags)
-	case "collectd":
-		parser, err = NewCollectdParser(config.CollectdAuthFile,
-			config.CollectdSecurityLevel, config.CollectdTypesDB)
 	default:
 		err = fmt.Errorf("Invalid data format: %s", config.DataFormat)
 	}
@@ -108,20 +97,8 @@ func NewJSONParser(
 	return parser, nil
 }
 
-func NewNagiosParser() (Parser, error) {
-	return &nagios.NagiosParser{}, nil
-}
-
 func NewInfluxParser() (Parser, error) {
 	return &influx.InfluxParser{}, nil
-}
-
-func NewGraphiteParser(
-	separator string,
-	templates []string,
-	defaultTags map[string]string,
-) (Parser, error) {
-	return graphite.NewGraphiteParser(separator, templates, defaultTags)
 }
 
 func NewValueParser(
@@ -134,12 +111,4 @@ func NewValueParser(
 		DataType:    dataType,
 		DefaultTags: defaultTags,
 	}, nil
-}
-
-func NewCollectdParser(
-	authFile string,
-	securityLevel string,
-	typesDB []string,
-) (Parser, error) {
-	return collectd.NewCollectdParser(authFile, securityLevel, typesDB)
 }
