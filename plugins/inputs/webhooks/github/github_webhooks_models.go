@@ -2,7 +2,7 @@ package github
 
 import (
 	"fmt"
-	"log"
+	"github.com/golang/glog"
 	"time"
 
 	"github.com/influxdata/telegraf"
@@ -109,7 +109,7 @@ func (s CommitCommentEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -139,7 +139,7 @@ func (s CreateEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -169,7 +169,7 @@ func (s DeleteEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -200,7 +200,7 @@ func (s DeploymentEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -234,7 +234,7 @@ func (s DeploymentStatusEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -262,7 +262,7 @@ func (s ForkEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -290,7 +290,7 @@ func (s GollumEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -322,7 +322,7 @@ func (s IssueCommentEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -354,7 +354,7 @@ func (s IssuesEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -383,7 +383,7 @@ func (s MemberEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -409,7 +409,7 @@ func (s MembershipEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -435,7 +435,7 @@ func (s PageBuildEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -461,7 +461,7 @@ func (s PublicEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -498,7 +498,7 @@ func (s PullRequestEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -536,7 +536,7 @@ func (s PullRequestReviewCommentEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -568,7 +568,7 @@ func (s PushEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -596,7 +596,7 @@ func (s ReleaseEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -622,7 +622,7 @@ func (s RepositoryEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -652,7 +652,7 @@ func (s StatusEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -680,7 +680,7 @@ func (s TeamAddEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }
@@ -706,7 +706,7 @@ func (s WatchEvent) NewMetric() telegraf.Metric {
 	}
 	m, err := metric.New(meas, t, f, time.Now())
 	if err != nil {
-		log.Fatalf("Failed to create %v event", event)
+		glog.Fatal("Failed to create %v event", event)
 	}
 	return m
 }

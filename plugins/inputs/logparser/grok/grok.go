@@ -3,7 +3,7 @@ package grok
 import (
 	"bufio"
 	"fmt"
-	"log"
+	"github.com/golang/glog"
 	"os"
 	"regexp"
 	"strconv"
@@ -175,7 +175,7 @@ func (p *Parser) ParseLine(line string) (telegraf.Metric, error) {
 	}
 
 	if len(values) == 0 {
-		log.Printf("D! Grok no match found for: %q", line)
+		glog.V(4).Infof("Grok no match found for: %q", line)
 		return nil, nil
 	}
 
@@ -211,21 +211,21 @@ func (p *Parser) ParseLine(line string) (telegraf.Metric, error) {
 		case INT:
 			iv, err := strconv.ParseInt(v, 10, 64)
 			if err != nil {
-				log.Printf("E! Error parsing %s to int: %s", v, err)
+				glog.Errorf("Error parsing %s to int: %s", v, err)
 			} else {
 				fields[k] = iv
 			}
 		case FLOAT:
 			fv, err := strconv.ParseFloat(v, 64)
 			if err != nil {
-				log.Printf("E! Error parsing %s to float: %s", v, err)
+				glog.Errorf("Error parsing %s to float: %s", v, err)
 			} else {
 				fields[k] = fv
 			}
 		case DURATION:
 			d, err := time.ParseDuration(v)
 			if err != nil {
-				log.Printf("E! Error parsing %s to duration: %s", v, err)
+				glog.Errorf("Error parsing %s to duration: %s", v, err)
 			} else {
 				fields[k] = int64(d)
 			}
@@ -236,14 +236,14 @@ func (p *Parser) ParseLine(line string) (telegraf.Metric, error) {
 		case EPOCH:
 			iv, err := strconv.ParseInt(v, 10, 64)
 			if err != nil {
-				log.Printf("E! Error parsing %s to int: %s", v, err)
+				glog.Errorf("Error parsing %s to int: %s", v, err)
 			} else {
 				timestamp = time.Unix(iv, 0)
 			}
 		case EPOCH_NANO:
 			iv, err := strconv.ParseInt(v, 10, 64)
 			if err != nil {
-				log.Printf("E! Error parsing %s to int: %s", v, err)
+				glog.Errorf("Error parsing %s to int: %s", v, err)
 			} else {
 				timestamp = time.Unix(0, iv)
 			}
@@ -274,7 +274,7 @@ func (p *Parser) ParseLine(line string) (telegraf.Metric, error) {
 			// if we still haven't found a timestamp layout, log it and we will
 			// just use time.Now()
 			if !foundTs {
-				log.Printf("E! Error parsing timestamp [%s], could not find any "+
+				glog.Errorf("Error parsing timestamp [%s], could not find any "+
 					"suitable time layouts.", v)
 			}
 		case DROP:
@@ -284,7 +284,7 @@ func (p *Parser) ParseLine(line string) (telegraf.Metric, error) {
 			if err == nil {
 				timestamp = ts
 			} else {
-				log.Printf("E! Error parsing %s to time layout [%s]: %s", v, t, err)
+				glog.Errorf("Error parsing %s to time layout [%s]: %s", v, t, err)
 			}
 		}
 	}

@@ -2,7 +2,7 @@ package logparser
 
 import (
 	"fmt"
-	"log"
+	"github.com/golang/glog"
 	"reflect"
 	"sync"
 
@@ -142,7 +142,7 @@ func (l *LogParserPlugin) tailNewfiles(fromBeginning bool) error {
 	for _, filepath := range l.Files {
 		g, err := globpath.Compile(filepath)
 		if err != nil {
-			log.Printf("E! Error Glob %s failed to compile, %s", filepath, err)
+			glog.Errorf("Error Glob %s failed to compile, %s", filepath, err)
 			continue
 		}
 		files := g.Match()
@@ -181,7 +181,7 @@ func (l *LogParserPlugin) receiver(tailer *tail.Tail) {
 	for line = range tailer.Lines {
 
 		if line.Err != nil {
-			log.Printf("E! Error tailing file %s, Error: %s\n",
+			glog.Errorf("Error tailing file %s, Error: %s\n",
 				tailer.Filename, line.Err)
 			continue
 		}
@@ -219,7 +219,7 @@ func (l *LogParserPlugin) parser() {
 					l.acc.AddFields(m.Name(), m.Fields(), m.Tags(), m.Time())
 				}
 			} else {
-				log.Println("E! Error parsing log line: " + err.Error())
+				glog.Error("Error parsing log line: " + err.Error())
 			}
 		}
 	}
@@ -232,7 +232,7 @@ func (l *LogParserPlugin) Stop() {
 	for _, t := range l.tailers {
 		err := t.Stop()
 		if err != nil {
-			log.Printf("E! Error stopping tail on file %s\n", t.Filename)
+			glog.Errorf("Error stopping tail on file %s\n", t.Filename)
 		}
 		t.Cleanup()
 	}

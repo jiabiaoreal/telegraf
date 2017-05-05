@@ -7,7 +7,7 @@ package selfstat
 
 import (
 	"hash/fnv"
-	"log"
+	"github.com/golang/glog"
 	"sort"
 	"sync"
 	"time"
@@ -109,7 +109,7 @@ func Metrics() []telegraf.Metric {
 			}
 			metric, err := metric.New(name, tags, fields, now)
 			if err != nil {
-				log.Printf("E! Error creating selfstat metric: %s", err)
+				glog.Errorf("Error creating selfstat metric: %s", err)
 				continue
 			}
 			metrics[i] = metric

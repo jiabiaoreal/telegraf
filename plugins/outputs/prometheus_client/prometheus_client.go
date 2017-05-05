@@ -3,7 +3,7 @@ package prometheus_client
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/golang/glog"
 	"net/http"
 	"regexp"
 	"sync"
@@ -169,7 +169,7 @@ func (p *PrometheusClient) Write(metrics []telegraf.Metric) error {
 				continue
 			}
 			if err != nil {
-				log.Printf("E! Error creating prometheus metric, "+
+				glog.Errorf("Error creating prometheus metric, "+
 					"key: %s, labels: %v,\nerr: %s\n",
 					mname, l, err.Error())
 			}

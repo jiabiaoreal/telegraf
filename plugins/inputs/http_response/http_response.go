@@ -4,7 +4,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"log"
+	"github.com/golang/glog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -155,7 +155,7 @@ func (h *HTTPResponse) HTTPGather() (map[string]interface{}, error) {
 		if h.compiledStringMatch == nil {
 			h.compiledStringMatch = regexp.MustCompile(h.ResponseStringMatch)
 			if err != nil {
-				log.Printf("E! Failed to compile regular expression %s : %s", h.ResponseStringMatch, err)
+				glog.Errorf("Failed to compile regular expression %s : %s", h.ResponseStringMatch, err)
 				fields["response_string_match"] = 0
 				return fields, nil
 			}
@@ -163,7 +163,7 @@ func (h *HTTPResponse) HTTPGather() (map[string]interface{}, error) {
 
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			log.Printf("E! Failed to read body of HTTP Response : %s", err)
+			glog.Errorf("Failed to read body of HTTP Response : %s", err)
 			fields["response_string_match"] = 0
 			return fields, nil
 		}

@@ -2,7 +2,7 @@ package influxdb
 
 import (
 	"fmt"
-	"log"
+	"github.com/golang/glog"
 	"math/rand"
 	"strings"
 	"time"
@@ -133,7 +133,7 @@ func (i *InfluxDB) Connect() error {
 			err = c.Query("CREATE DATABASE " + i.Database)
 			if err != nil {
 				if !strings.Contains(err.Error(), "Status Code [403]") {
-					log.Println("I! Database creation failed: " + err.Error())
+					glog.Error("Database creation failed: " + err.Error())
 				}
 				continue
 			}
@@ -174,19 +174,19 @@ func (i *InfluxDB) Write(metrics []telegraf.Metric) error {
 			// If the database was not found, try to recreate it:
 			if strings.Contains(e.Error(), "database not found") {
 				if errc := i.clients[n].Query("CREATE DATABASE  " + i.Database); errc != nil {
-					log.Printf("E! Error: Database %s not found and failed to recreate\n",
+					glog.Errorf("Error: Database %s not found and failed to recreate\n",
 						i.Database)
 				}
 			}
 			if strings.Contains(e.Error(), "field type conflict") {
-				log.Printf("E! Field type conflict, dropping conflicted points: %s", e)
+				glog.Errorf("Field type conflict, dropping conflicted points: %s", e)
 				// setting err to nil, otherwise we will keep retrying and points
 				// w/ conflicting types will get stuck in the buffer forever.
 				err = nil
 				break
 			}
 			// Log write failure
-			log.Printf("E! InfluxDB Output Error: %s", e)
+			glog.Errorf("InfluxDB Output Error: %s", e)
 		} else {
 			err = nil
 			break

@@ -24,7 +24,7 @@ func init() {
 	} else {
 		full_url, err := url.Parse(connect_url)
 		if err != nil {
-			log.Fatalf("Unable to parse URL (%s), %s\n", full_url, err.Error())
+			log.Fatal("Unable to parse URL (%s), %s\n", full_url, err.Error())
 		}
 		server = &Server{Url: full_url}
 	}
@@ -40,13 +40,13 @@ func testSetup(m *testing.M) {
 	}
 	dialInfo, err := mgo.ParseURL(dialAddrs[0])
 	if err != nil {
-		log.Fatalf("Unable to parse URL (%s), %s\n", dialAddrs[0], err.Error())
+		log.Fatal("Unable to parse URL (%s), %s\n", dialAddrs[0], err.Error())
 	}
 	dialInfo.Direct = true
 	dialInfo.Timeout = 5 * time.Second
 	sess, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
-		log.Fatalf("Unable to connect to MongoDB, %s\n", err.Error())
+		log.Fatal("Unable to connect to MongoDB, %s\n", err.Error())
 	}
 	server.Session = sess
 	server.Session, _ = mgo.Dial(server.Url.Host)

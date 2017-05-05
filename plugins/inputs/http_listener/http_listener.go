@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"log"
+	"github.com/golang/glog"
 	"net"
 	"net/http"
 	"sync"
@@ -133,7 +133,7 @@ func (h *HTTPListener) Start(acc telegraf.Accumulator) error {
 		h.httpListen()
 	}()
 
-	log.Printf("I! Started HTTP listener service on %s\n", h.ServiceAddress)
+	glog.Infof("Started HTTP listener service on %s\n", h.ServiceAddress)
 
 	return nil
 }
@@ -146,7 +146,7 @@ func (h *HTTPListener) Stop() {
 	h.listener.Close()
 	h.wg.Wait()
 
-	log.Println("I! Stopped HTTP listener service on ", h.ServiceAddress)
+	glog.Error("Stopped HTTP listener service on ", h.ServiceAddress)
 }
 
 // httpListen sets up an http.Server and calls server.Serve.
@@ -216,7 +216,7 @@ func (h *HTTPListener) serveWrite(res http.ResponseWriter, req *http.Request) {
 		body, err = gzip.NewReader(req.Body)
 		defer body.Close()
 		if err != nil {
-			log.Println("E! " + err.Error())
+			glog.Error(err.Error())
 			badRequest(res)
 			return
 		}
@@ -231,7 +231,7 @@ func (h *HTTPListener) serveWrite(res http.ResponseWriter, req *http.Request) {
 	for {
 		n, err := io.ReadFull(body, buf[bufStart:])
 		if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
-			log.Println("E! " + err.Error())
+			glog.Error(err.Error())
 			// problem reading the request body
 			badRequest(res)
 			return
@@ -266,7 +266,7 @@ func (h *HTTPListener) serveWrite(res http.ResponseWriter, req *http.Request) {
 		if err == io.ErrUnexpectedEOF {
 			// finished reading the request body
 			if err := h.parse(buf[:n+bufStart], now, precision); err != nil {
-				log.Println("E! " + err.Error())
+				glog.Error(err.Error())
 				return400 = true
 			}
 			if return400 {
@@ -283,7 +283,7 @@ func (h *HTTPListener) serveWrite(res http.ResponseWriter, req *http.Request) {
 		i := bytes.LastIndexByte(buf, '\n')
 		if i == -1 {
 			// drop any line longer than the max buffer size
-			log.Printf("E! http_listener received a single line longer than the maximum of %d bytes",
+			glog.Errorf("http_listener received a single line longer than the maximum of %d bytes",
 				len(buf))
 			hangingBytes = true
 			return400 = true
@@ -291,7 +291,7 @@ func (h *HTTPListener) serveWrite(res http.ResponseWriter, req *http.Request) {
 			continue
 		}
 		if err := h.parse(buf[:i+1], now, precision); err != nil {
-			log.Println("E! " + err.Error())
+			glog.Error(err.Error())
 			return400 = true
 		}
 		// rotate the bit remaining after the last newline to the front of the buffer

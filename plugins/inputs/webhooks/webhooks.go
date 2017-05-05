@@ -2,7 +2,7 @@ package webhooks
 
 import (
 	"fmt"
-	"log"
+	"github.com/golang/glog"
 	"net/http"
 	"reflect"
 
@@ -106,10 +106,10 @@ func (wb *Webhooks) AvailableWebhooks() []Webhook {
 
 func (wb *Webhooks) Start(acc telegraf.Accumulator) error {
 	go wb.Listen(acc)
-	log.Printf("I! Started the webhooks service on %s\n", wb.ServiceAddress)
+	glog.Infof("Started the webhooks service on %s\n", wb.ServiceAddress)
 	return nil
 }
 
 func (rb *Webhooks) Stop() {
-	log.Println("I! Stopping the Webhooks service")
+	glog.Error("Stopping the Webhooks service")
 }

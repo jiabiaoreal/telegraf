@@ -3,7 +3,7 @@ package filestack
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
+	"github.com/golang/glog"
 	"net/http"
 	"time"
 
@@ -19,7 +19,7 @@ type FilestackWebhook struct {
 func (fs *FilestackWebhook) Register(router *mux.Router, acc telegraf.Accumulator) {
 	router.HandleFunc(fs.Path, fs.eventHandler).Methods("POST")
 
-	log.Printf("I! Started the webhooks_filestack on %s\n", fs.Path)
+	glog.Infof("Started the webhooks_filestack on %s\n", fs.Path)
 	fs.acc = acc
 }
 

@@ -8,15 +8,24 @@ PATH := $(subst :,/bin:,$(GOPATH))/bin:$(PATH)
 endif
 
 # Standard Telegraf build
-default: prepare build
+default: build
 
 # Windows build
-windows: prepare-windows build-windows
+windows: build-windows
 
 # Only run the build (no dependency grabbing)
 build:
-	go install -ldflags \
-		"-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.branch=$(BRANCH)" ./...
+	go build -ldflags \
+		"-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.branch=$(BRANCH)" cmd/telegraf/telegraf.go
+
+deploy: build
+	gzip < telegraf > telegraf-${COMMIT}.gz
+	mv telegraf-${COMMIT}.gz /var/soft/telegraf/
+	ln -sf telegraf-${COMMIT}.gz /var/soft/telegraf/last.gz
+	echo -n "version=" > /var/soft/telegraf/last.spec
+	./telegraf --version >> /var/soft/telegraf/last.spec
+	echo -n "sha256=" >> /var/soft/telegraf/last.spec
+	sha256sum telegraf | sed 's/ .*//' >> /var/soft/telegraf/last.spec
 
 build-windows:
 	GOOS=windows GOARCH=amd64 go build -o telegraf.exe -ldflags \
@@ -31,17 +40,6 @@ build-for-docker:
 # run package script
 package:
 	./scripts/build.py --package --version="$(VERSION)" --platform=linux --arch=all --upload
-
-# Get dependencies and use gdm to checkout changesets
-prepare:
-	go get github.com/sparrc/gdm
-	gdm restore
-
-# Use the windows godeps file to prepare dependencies
-prepare-windows:
-	go get github.com/sparrc/gdm
-	gdm restore
-	gdm restore -f Godeps_windows
 
 # Run all docker containers necessary for unit tests
 docker-run:

@@ -1,10 +1,10 @@
 package models
 
 import (
-	"log"
 	"math"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/metric"
 )
@@ -122,7 +122,7 @@ func makemetric(
 		case float64:
 			// NaNs are invalid values in influxdb, skip measurement
 			if math.IsNaN(val) || math.IsInf(val, 0) {
-				log.Printf("D! Measurement [%s] field [%s] has a NaN or Inf "+
+				glog.V(4).Infof("Measurement [%s] field [%s] has a NaN or Inf "+
 					"field, skipping",
 					measurement, k)
 				delete(fields, k)
@@ -135,7 +135,7 @@ func makemetric(
 
 	m, err := metric.New(measurement, tags, fields, t, mType)
 	if err != nil {
-		log.Printf("Error adding point [%s]: %s\n", measurement, err.Error())
+		glog.Errorf("Error adding point [%s]: %s\n", measurement, err.Error())
 		return nil
 	}
 

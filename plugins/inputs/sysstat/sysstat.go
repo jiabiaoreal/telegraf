@@ -7,7 +7,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"log"
+	"github.com/golang/glog"
 	"os"
 	"os/exec"
 	"path"
@@ -188,7 +188,7 @@ func (s *Sysstat) collect() error {
 	out, err := internal.CombinedOutputTimeout(cmd, time.Second*time.Duration(collectInterval+parseInterval))
 	if err != nil {
 		if err := os.Remove(s.tmpFile); err != nil {
-			log.Printf("E! failed to remove tmp file after %s command: %s", strings.Join(cmd.Args, " "), err)
+			glog.Errorf("failed to remove tmp file after %s command: %s", strings.Join(cmd.Args, " "), err)
 		}
 		return fmt.Errorf("failed to run command %s: %s - %s", strings.Join(cmd.Args, " "), err, string(out))
 	}

@@ -2,15 +2,15 @@ package agent
 
 import (
 	"fmt"
-	"log"
-	"os"
 	"runtime"
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/internal"
 	"github.com/influxdata/telegraf/internal/config"
+	"github.com/influxdata/telegraf/internal/hostinfo"
 	"github.com/influxdata/telegraf/internal/models"
 	"github.com/influxdata/telegraf/selfstat"
 )
@@ -28,16 +28,17 @@ func NewAgent(config *config.Config) (*Agent, error) {
 
 	if !a.Config.Agent.OmitHostname {
 		if a.Config.Agent.Hostname == "" {
-			hostname, err := os.Hostname()
-			if err != nil {
-				return nil, err
-			}
-
-			a.Config.Agent.Hostname = hostname
+			a.Config.Agent.Hostname = hostinfo.GetHostName()
 		}
-
 		config.Tags["host"] = a.Config.Agent.Hostname
 	}
+	for k, v := range config.Tags {
+		hostinfo.AddAnnotation(k, v)
+	}
+
+	// over write env
+	env := string(hostinfo.GetEnv())
+	config.Tags["env"] = env
 
 	return a, nil
 }
@@ -48,16 +49,16 @@ func (a *Agent) Connect() error {
 		switch ot := o.Output.(type) {
 		case telegraf.ServiceOutput:
 			if err := ot.Start(); err != nil {
-				log.Printf("E! Service for output %s failed to start, exiting\n%s\n",
+				glog.Errorf("Service for output %s failed to start, exiting\n%s\n",
 					o.Name, err.Error())
 				return err
 			}
 		}
 
-		log.Printf("D! Attempting connection to output: %s\n", o.Name)
+		glog.V(4).Infof("Attempting connection to output: %s\n", o.Name)
 		err := o.Output.Connect()
 		if err != nil {
-			log.Printf("E! Failed to connect to output %s, retrying in 15s, "+
+			glog.Errorf("Failed to connect to output %s, retrying in 15s, "+
 				"error was '%s' \n", o.Name, err)
 			time.Sleep(15 * time.Second)
 			err = o.Output.Connect()
@@ -65,7 +66,7 @@ func (a *Agent) Connect() error {
 				return err
 			}
 		}
-		log.Printf("D! Successfully connected to output: %s\n", o.Name)
+		glog.V(4).Infof("Successfully connected to output: %s\n", o.Name)
 	}
 	return nil
 }
@@ -87,9 +88,9 @@ func panicRecover(input *models.RunningInput) {
 	if err := recover(); err != nil {
 		trace := make([]byte, 2048)
 		runtime.Stack(trace, true)
-		log.Printf("E! FATAL: Input [%s] panicked: %s, Stack:\n%s\n",
+		glog.Errorf("FATAL: Input [%s] panicked: %s, Stack:\n%s\n",
 			input.Name(), err, trace)
-		log.Println("E! PLEASE REPORT THIS PANIC ON GITHUB with " +
+		glog.Errorf("PLEASE REPORT THIS PANIC ON GITHUB with " +
 			"stack trace, configuration, and OS information: " +
 			"https://github.com/influxdata/telegraf/issues/new")
 	}
@@ -231,15 +232,19 @@ func (a *Agent) Test() error {
 func (a *Agent) flush() {
 	var wg sync.WaitGroup
 
+	glog.V(10).Infof("start flush %v outputs", len(a.Config.Outputs))
+
 	wg.Add(len(a.Config.Outputs))
 	for _, o := range a.Config.Outputs {
+		glog.V(10).Infof("start flush output %v", o.Name)
 		go func(output *models.RunningOutput) {
 			defer wg.Done()
 			err := output.Write()
 			if err != nil {
-				log.Printf("E! Error writing to output [%s]: %s\n",
+				glog.Errorf("Error writing to output [%s]: %s\n",
 					output.Name, err.Error())
 			}
+			glog.V(10).Infof("flush %v done", output.Name)
 		}(o)
 	}
 
@@ -260,9 +265,11 @@ func (a *Agent) flusher(shutdown chan struct{}, metricC chan telegraf.Metric) er
 	go func() {
 		defer wg.Done()
 		for {
+			glog.V(15).Infof("len outMetriC: %v", len(outMetricC))
 			select {
 			case <-shutdown:
 				if len(outMetricC) > 0 {
+					glog.V(10).Infof("len outMetriC: %v", len(outMetricC))
 					// keep going until outMetricC is flushed
 					continue
 				}
@@ -296,10 +303,12 @@ func (a *Agent) flusher(shutdown chan struct{}, metricC chan telegraf.Metric) er
 	for {
 		select {
 		case <-shutdown:
-			log.Println("I! Hang on, flushing any cached metrics before shutdown")
+			glog.Infof("Hang on, flushing any cached metrics before shutdown")
 			// wait for outMetricC to get flushed before flushing outputs
 			wg.Wait()
+			glog.Infof("Hang on, start to flush")
 			a.flush()
+			glog.Infof("Hang on, end to flush")
 			return nil
 		case <-ticker.C:
 			go func() {
@@ -310,13 +319,14 @@ func (a *Agent) flusher(shutdown chan struct{}, metricC chan telegraf.Metric) er
 					<-semaphore
 				default:
 					// skipping this flush because one is already happening
-					log.Println("W! Skipping a scheduled flush because there is" +
+					glog.Warning("Skipping a scheduled flush because there is" +
 						" already a flush ongoing.")
 				}
 			}()
 		case metric := <-metricC:
 			// NOTE potential bottleneck here as we put each metric through the
 			// processors serially.
+			glog.V(15).Infof("receive a new metric: %v", metric)
 			mS := []telegraf.Metric{metric}
 			for _, processor := range a.Config.Processors {
 				mS = processor.Apply(mS...)
@@ -330,9 +340,10 @@ func (a *Agent) flusher(shutdown chan struct{}, metricC chan telegraf.Metric) er
 
 // Run runs the agent daemon, gathering every Interval
 func (a *Agent) Run(shutdown chan struct{}) error {
+	defer glog.V(10).Infof("agent run stopped")
 	var wg sync.WaitGroup
 
-	log.Printf("I! Agent Config: Interval:%s, Quiet:%#v, Hostname:%#v, "+
+	glog.Infof("Agent Config: Interval:%s, Quiet:%#v, Hostname:%#v, "+
 		"Flush Interval:%s \n",
 		a.Config.Agent.Interval.Duration, a.Config.Agent.Quiet,
 		a.Config.Agent.Hostname, a.Config.Agent.FlushInterval.Duration)
@@ -350,11 +361,13 @@ func (a *Agent) Run(shutdown chan struct{}) error {
 			// metrics.
 			acc.SetPrecision(time.Nanosecond, 0)
 			if err := p.Start(acc); err != nil {
-				log.Printf("E! Service for input %s failed to start, exiting\n%s\n",
+				glog.Errorf("Service for input %s failed to start, exiting\n%s\n",
 					input.Name(), err.Error())
 				return err
 			}
+			glog.V(10).Infof("started input %v", input.Name())
 			defer p.Stop()
+			defer glog.V(10).Infof("start to stop input %v", input.Name())
 		}
 	}
 
@@ -367,8 +380,9 @@ func (a *Agent) Run(shutdown chan struct{}) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer glog.V(10).Infof("flusher end")
 		if err := a.flusher(shutdown, metricC); err != nil {
-			log.Printf("E! Flusher routine failed, exiting: %s\n", err.Error())
+			glog.Errorf("Flusher routine failed, exiting: %s\n", err.Error())
 			close(shutdown)
 		}
 	}()

@@ -2,9 +2,10 @@ package socket_writer
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"strings"
+
+	"github.com/golang/glog"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/internal"
@@ -69,7 +70,7 @@ func (sw *SocketWriter) Connect() error {
 	}
 
 	if err := sw.setKeepAlive(c); err != nil {
-		log.Printf("unable to configure keep alive (%s): %s", sw.Address, err)
+		glog.Errorf("unable to configure keep alive (%s): %s", sw.Address, err)
 	}
 
 	sw.Conn = c

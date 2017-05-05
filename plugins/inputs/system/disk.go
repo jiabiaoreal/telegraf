@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/golang/glog"
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 )
@@ -165,9 +166,6 @@ var varRegex = regexp.MustCompile(`\$(?:\w+|\{\w+\})`)
 func (s *DiskIOStats) diskName(devName string) string {
 	di, err := s.diskInfo(devName)
 	if err != nil {
-		// discard error :-(
-		// We can't return error because it's non-fatal to the Gather().
-		// And we have no logger, so we can't log it.
 		return devName
 	}
 	if di == nil {
@@ -201,7 +199,7 @@ func (s *DiskIOStats) diskTags(devName string) map[string]string {
 	if err != nil {
 		// discard error :-(
 		// We can't return error because it's non-fatal to the Gather().
-		// And we have no logger, so we can't log it.
+		glog.Warningf("get diskTags error: %v", err)
 		return nil
 	}
 	if di == nil {

@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
-	"log"
+	"github.com/golang/glog"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -21,7 +21,7 @@ type GithubWebhook struct {
 
 func (gh *GithubWebhook) Register(router *mux.Router, acc telegraf.Accumulator) {
 	router.HandleFunc(gh.Path, gh.eventHandler).Methods("POST")
-	log.Printf("I! Started the webhooks_github on %s\n", gh.Path)
+	glog.Infof("Started the webhooks_github on %s\n", gh.Path)
 	gh.acc = acc
 }
 
@@ -35,7 +35,7 @@ func (gh *GithubWebhook) eventHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if gh.Secret != "" && !checkSignature(gh.Secret, data, r.Header.Get("X-Hub-Signature")) {
-		log.Printf("E! Fail to check the github webhook signature\n")
+		glog.Errorf("Fail to check the github webhook signature\n")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -70,7 +70,7 @@ func (e *newEventError) Error() string {
 }
 
 func NewEvent(data []byte, name string) (Event, error) {
-	log.Printf("D! New %v event received", name)
+	glog.V(4).Infof("New %v event received", name)
 	switch name {
 	case "commit_comment":
 		return generateEvent(data, &CommitCommentEvent{})

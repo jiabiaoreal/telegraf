@@ -3,17 +3,26 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	_ "net/http/pprof" // Comment this line to disable pprof endpoint.
 	"os"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
+	"we.com/jiabiao/common/etcd"
+	"we.com/jiabiao/monitor/registry/generic"
+
+	"github.com/golang/glog"
 	"github.com/influxdata/telegraf/agent"
+	"github.com/influxdata/telegraf/cmd/telegraf/app"
 	"github.com/influxdata/telegraf/internal/config"
+	"github.com/influxdata/telegraf/internal/hostinfo"
 	"github.com/influxdata/telegraf/logger"
 	_ "github.com/influxdata/telegraf/plugins/aggregators/all"
 	"github.com/influxdata/telegraf/plugins/inputs"
@@ -21,15 +30,11 @@ import (
 	"github.com/influxdata/telegraf/plugins/outputs"
 	_ "github.com/influxdata/telegraf/plugins/outputs/all"
 	_ "github.com/influxdata/telegraf/plugins/processors/all"
-	"github.com/kardianos/service"
+	"github.com/pkg/errors"
 )
 
-var fDebug = flag.Bool("debug", false,
-	"turn on debug logging")
 var pprofAddr = flag.String("pprof-addr", "",
 	"pprof address to listen on, not activate pprof if empty")
-var fQuiet = flag.Bool("quiet", false,
-	"run in quiet mode")
 var fTest = flag.Bool("test", false, "gather metrics, print them out, and exit")
 var fConfig = flag.String("config", "", "configuration file to load")
 var fConfigDirectory = flag.String("config-directory", "",
@@ -37,7 +42,7 @@ var fConfigDirectory = flag.String("config-directory", "",
 var fVersion = flag.Bool("version", false, "display the version")
 var fSampleConfig = flag.Bool("sample-config", false,
 	"print out full sample configuration")
-var fPidfile = flag.String("pidfile", "", "file to write our pid to")
+var fPidfile = flag.String("pidfile", "/var/run/telegraf.pid", "file to write our pid to")
 var fInputFilters = flag.String("input-filter", "",
 	"filter the inputs to enable, separator is :")
 var fInputList = flag.Bool("input-list", false,
@@ -54,6 +59,10 @@ var fUsage = flag.String("usage", "",
 	"print usage for a plugin, ie, 'telegraf -usage mysql'")
 var fService = flag.String("service", "",
 	"operate on the service")
+var fSignal = flag.String("s", "", `avalible values are:
+	stop - stops watchdog and agent
+	reload - reload agent config
+	restart - resetart watchdog and agent`)
 
 // Telegraf version, populated linker.
 //   ie, -ldflags "-X main.version=`git describe --always --tags`"
@@ -84,15 +93,57 @@ The commands & flags are:
   config             print out full sample configuration to stdout
   version            print the version to stdout
 
-  --config <file>     configuration file to load
-  --test              gather metrics once, print them to stdout, and exit
-  --config-directory  directory containing additional *.conf files
-  --input-filter      filter the input plugins to enable, separator is :
-  --output-filter     filter the output plugins to enable, separator is :
-  --usage             print usage for a plugin, ie, 'telegraf --usage mysql'
-  --debug             print metrics as they're generated to stdout
-  --pprof-addr        pprof address to listen on, format: localhost:6060 or :6060
-  --quiet             run in quiet mode
+  -aggregator-filter string
+    	filter the aggregators to enable, separator is :
+  -alsologtostderr
+    	log to standard error as well as files
+  -config string
+    	configuration file to load
+  -config-directory string
+    	directory containing additional *.conf files
+  -httptest.serve string
+    	if non-empty, httptest.NewServer serves on this address and blocks
+  -input-filter string
+    	filter the inputs to enable, separator is :
+  -input-list
+    	print available input plugins.
+  -log_backtrace_at value
+    	when logging hits line file:N, emit a stack trace
+  -log_dir string
+    	If non-empty, write log files in this directory
+  -logtostderr
+    	log to standard error instead of files
+  -output-filter string
+    	filter the outputs to enable, separator is :
+  -output-list
+    	print available output plugins.
+  -pidfile string
+    	file to write our pid to
+  -pprof-addr string
+    	pprof address to listen on, not activate pprof if empty
+  -processor-filter string
+    	filter the processors to enable, separator is :
+  -sample-config
+    	print out full sample configuration
+  -service string
+    	operate on the service
+  -stderrthreshold value
+    	logs at or above this threshold go to stderr
+  -test
+    	gather metrics, print them out, and exit
+  -usage string
+    	print usage for a plugin, ie, 'telegraf -usage mysql'
+  -v value
+    	log level for V logs
+  -version
+    	display the version
+  -vmodule value
+    	comma-separated list of pattern=N settings for file-filtered logging
+  -watch-Update
+    	watch etcd for update config change, required watchdog to be true (default true)
+  -watchdog
+    	start watchdog to start process when exited (default true)
+
 
 Examples:
 
@@ -135,58 +186,53 @@ func reloadLoop(
 		c.InputFilters = inputFilters
 		err := c.LoadConfig(*fConfig)
 		if err != nil {
-			log.Fatal("E! " + err.Error())
+			glog.Fatal(err.Error())
 		}
 
 		if *fConfigDirectory != "" {
 			err = c.LoadDirectory(*fConfigDirectory)
 			if err != nil {
-				log.Fatal("E! " + err.Error())
+				glog.Fatal(err.Error())
 			}
 		}
 		if !*fTest && len(c.Outputs) == 0 {
-			log.Fatalf("E! Error: no outputs found, did you provide a valid config file?")
+			glog.Fatal("Error: no outputs found, did you provide a valid config file?")
 		}
 		if len(c.Inputs) == 0 {
-			log.Fatalf("E! Error: no inputs found, did you provide a valid config file?")
+			glog.Fatal("Error: no inputs found, did you provide a valid config file?")
 		}
 
 		ag, err := agent.NewAgent(c)
 		if err != nil {
-			log.Fatal("E! " + err.Error())
+			glog.Fatal(err.Error())
 		}
 
-		// Setup logging
-		logger.SetupLogging(
-			ag.Config.Agent.Debug || *fDebug,
-			ag.Config.Agent.Quiet || *fQuiet,
-			ag.Config.Agent.Logfile,
-		)
+		logger.InitLogs()
 
 		if *fTest {
 			err = ag.Test()
 			if err != nil {
-				log.Fatal("E! " + err.Error())
+				glog.Fatal(err.Error())
 			}
 			os.Exit(0)
 		}
 
 		err = ag.Connect()
 		if err != nil {
-			log.Fatal("E! " + err.Error())
+			glog.Fatal(err.Error())
 		}
 
 		shutdown := make(chan struct{})
 		signals := make(chan os.Signal)
-		signal.Notify(signals, os.Interrupt, syscall.SIGHUP)
+		signal.Notify(signals, os.Interrupt, syscall.SIGHUP, syscall.SIGTERM)
 		go func() {
 			select {
 			case sig := <-signals:
-				if sig == os.Interrupt {
+				if sig == os.Interrupt || sig == syscall.SIGTERM {
 					close(shutdown)
 				}
 				if sig == syscall.SIGHUP {
-					log.Printf("I! Reloading Telegraf config\n")
+					glog.Infof("Reloading Telegraf config\n")
 					<-reload
 					reload <- true
 					close(shutdown)
@@ -196,28 +242,10 @@ func reloadLoop(
 			}
 		}()
 
-		log.Printf("I! Starting Telegraf (version %s)\n", version)
-		log.Printf("I! Loaded outputs: %s", strings.Join(c.OutputNames(), " "))
-		log.Printf("I! Loaded inputs: %s", strings.Join(c.InputNames(), " "))
-		log.Printf("I! Tags enabled: %s", c.ListTags())
-
-		if *fPidfile != "" {
-			f, err := os.OpenFile(*fPidfile, os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				log.Printf("E! Unable to create pidfile: %s", err)
-			} else {
-				fmt.Fprintf(f, "%d\n", os.Getpid())
-
-				f.Close()
-
-				defer func() {
-					err := os.Remove(*fPidfile)
-					if err != nil {
-						log.Printf("E! Unable to remove pidfile: %s", err)
-					}
-				}()
-			}
-		}
+		glog.Infof("Starting Telegraf (version %s)\n", version)
+		glog.Infof("Loaded outputs: %s", strings.Join(c.OutputNames(), " "))
+		glog.Infof("Loaded inputs: %s", strings.Join(c.InputNames(), " "))
+		glog.Infof("Tags enabled: %s", c.ListTags())
 
 		ag.Run(shutdown)
 	}
@@ -228,34 +256,8 @@ func usageExit(rc int) {
 	os.Exit(rc)
 }
 
-type program struct {
-	inputFilters      []string
-	outputFilters     []string
-	aggregatorFilters []string
-	processorFilters  []string
-}
-
-func (p *program) Start(s service.Service) error {
-	go p.run()
-	return nil
-}
-func (p *program) run() {
-	stop = make(chan struct{})
-	reloadLoop(
-		stop,
-		p.inputFilters,
-		p.outputFilters,
-		p.aggregatorFilters,
-		p.processorFilters,
-	)
-}
-func (p *program) Stop(s service.Service) error {
-	close(stop)
-	return nil
-}
-
 func main() {
-	flag.Usage = func() { usageExit(0) }
+	// flag.Usage = func() { usageExit(0) }
 	flag.Parse()
 	args := flag.Args()
 
@@ -273,23 +275,6 @@ func main() {
 	}
 	if *fProcessorFilters != "" {
 		processorFilters = strings.Split(":"+strings.TrimSpace(*fProcessorFilters)+":", ":")
-	}
-
-	if *pprofAddr != "" {
-		go func() {
-			pprofHostPort := *pprofAddr
-			parts := strings.Split(pprofHostPort, ":")
-			if len(parts) == 2 && parts[0] == "" {
-				pprofHostPort = fmt.Sprintf("localhost:%s", parts[1])
-			}
-			pprofHostPort = "http://" + pprofHostPort + "/debug/pprof"
-
-			log.Printf("I! Starting pprof HTTP server at: %s", pprofHostPort)
-
-			if err := http.ListenAndServe(*pprofAddr, nil); err != nil {
-				log.Fatal("E! " + err.Error())
-			}
-		}()
 	}
 
 	if len(args) > 0 {
@@ -312,13 +297,13 @@ func main() {
 	switch {
 	case *fOutputList:
 		fmt.Println("Available Output Plugins:")
-		for k, _ := range outputs.Outputs {
+		for k := range outputs.Outputs {
 			fmt.Printf("  %s\n", k)
 		}
 		return
 	case *fInputList:
 		fmt.Println("Available Input Plugins:")
-		for k, _ := range inputs.Inputs {
+		for k := range inputs.Inputs {
 			fmt.Printf("  %s\n", k)
 		}
 		return
@@ -337,50 +322,118 @@ func main() {
 		err := config.PrintInputConfig(*fUsage)
 		err2 := config.PrintOutputConfig(*fUsage)
 		if err != nil && err2 != nil {
-			log.Fatalf("E! %s and %s", err, err2)
+			glog.Fatalf("%s and %s", err, err2)
 		}
 		return
 	}
 
-	if runtime.GOOS == "windows" {
-		svcConfig := &service.Config{
-			Name:        "telegraf",
-			DisplayName: "Telegraf Data Collector Service",
-			Description: "Collects data using a series of plugins and publishes it to" +
-				"another series of plugins.",
-			Arguments: []string{"-config", "C:\\Program Files\\Telegraf\\telegraf.conf"},
-		}
+	cmd := *fSignal
+	if cmd != "" {
+		handCMD(cmd)
+		return
+	}
 
-		prg := &program{
-			inputFilters:      inputFilters,
-			outputFilters:     outputFilters,
-			aggregatorFilters: aggregatorFilters,
-			processorFilters:  processorFilters,
-		}
-		s, err := service.New(prg, svcConfig)
-		if err != nil {
-			log.Fatal("E! " + err.Error())
-		}
-		// Handle the -service flag here to prevent any issues with tooling that
-		// may not have an interactive session, e.g. installing from Ansible.
-		if *fService != "" {
-			if *fConfig != "" {
-				(*svcConfig).Arguments = []string{"-config", *fConfig}
-			}
-			if *fConfigDirectory != "" {
-				(*svcConfig).Arguments = append((*svcConfig).Arguments, "-config-directory", *fConfigDirectory)
-			}
-			err := service.Control(s, *fService)
-			if err != nil {
-				log.Fatal("E! " + err.Error())
-			}
-			os.Exit(0)
+	// init etcd config
+	cfgfile := config.GetEtcdConfigFile()
+	cfg, err := etcd.NewEtcdConfig(cfgfile)
+	if err != nil {
+		err := fmt.Errorf("load etcd config err: %v", err)
+		glog.Fatalf("%v", err)
+	}
+	generic.SetEtcdConfig(cfg)
+
+	glog.V(10).Infof("args: %v", args)
+
+	if app.Start() {
+		parent()
+	} else {
+		child(inputFilters, outputFilters, aggregatorFilters, processorFilters)
+	}
+}
+
+func parent() {
+	runtime.GOMAXPROCS(1)
+
+	if *fPidfile != "" {
+		if err := writePid(*fPidfile); err != nil {
+			glog.Errorf("write pid failed: %v", err)
+			fmt.Printf("write pid file %v error: %v", *fPidfile, err)
 		} else {
-			err = s.Run()
-			if err != nil {
-				log.Println("E! " + err.Error())
+			defer func() {
+				err := os.Remove(*fPidfile)
+				if err != nil {
+					glog.Errorf("Unable to remove pidfile: %s", err)
+				}
+			}()
+		}
+	}
+
+	signals := make(chan os.Signal)
+	signal.Notify(signals, os.Interrupt, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGQUIT)
+	for {
+		select {
+		case <-app.Done():
+			return
+		case sig := <-signals:
+			// restart agent
+			if sig == syscall.SIGHUP {
+				glog.Info("Restart child")
+				app.Restart(true)
+			}
+
+			// stop watchdog and agent
+			if sig == syscall.SIGTERM || sig == os.Interrupt {
+				glog.Infof("receive term signal, stop child and exit")
+				app.StopChildAndExit()
+				return
+			}
+
+			// SIGQUIT restart watchdog and agent
+			if sig == syscall.SIGQUIT {
+				app.Restart(false)
+				timer := time.NewTimer(5 * time.Second)
+				for {
+					select {
+					case <-app.Done():
+						return
+					case <-timer.C:
+						fmt.Fprintf(os.Stderr, "timeout waiting watchdog to exit")
+						return
+					}
+				}
 			}
 		}
+	}
+}
+
+func child(inputFilters, outputFilters, aggregatorFilters, processorFilters []string) {
+	// use at most 4 cpu
+	numCPUs := hostinfo.GetNumOfCPUs()
+	cpuUse := numCPUs / 4
+	if cpuUse < 0 {
+		cpuUse = 1
+	} else if cpuUse > 4 {
+		cpuUse = 4
+	}
+	runtime.GOMAXPROCS(cpuUse)
+	if *pprofAddr != "" {
+		go func() {
+			pprofHostPort := *pprofAddr
+			parts := strings.Split(pprofHostPort, ":")
+			if len(parts) == 2 && parts[0] == "" {
+				pprofHostPort = fmt.Sprintf("localhost:%s", parts[1])
+			}
+			pprofHostPort = "http://" + pprofHostPort + "/debug/pprof"
+
+			glog.Infof("Starting pprof HTTP server at: %s", pprofHostPort)
+
+			if err := http.ListenAndServe(*pprofAddr, nil); err != nil {
+				glog.Fatal(err.Error())
+			}
+		}()
+	}
+	if runtime.GOOS == "windows" {
+		log.Fatal("windows is not supported")
 	} else {
 		stop = make(chan struct{})
 		reloadLoop(
@@ -391,4 +444,159 @@ func main() {
 			processorFilters,
 		)
 	}
+}
+
+func readPid(pidfile string) (int, error) {
+	defPid := -65536
+	if pidfile == "" {
+		return defPid, errors.New("pidfile is empty")
+	}
+
+	d, err := ioutil.ReadFile(pidfile)
+	if err != nil {
+		return defPid, err
+	}
+
+	content := strings.TrimSpace(string(d))
+	pid, err := strconv.Atoi(content)
+	if err != nil {
+		err = errors.Wrap(err, "read convert contend to pid")
+		return defPid, err
+	}
+	return pid, nil
+}
+
+func writePid(pidfile string) error {
+	pid := os.Getpid()
+	return ioutil.WriteFile(pidfile, []byte(strconv.Itoa(pid)), 0644)
+}
+
+/*
+	stop - stops watchdog and agent
+	reload - reload agent config
+	restart - resetart watchdog and agent`)
+*/
+func handCMD(cmd string) {
+	switch cmd {
+	case "stop":
+		pids, err := app.FindProcesses()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "get pid list :%v", err)
+		}
+		glog.V(4).Infof("find processes: %v", pids)
+		procs := []*os.Process{}
+		for _, pid := range pids {
+			proc, err := os.FindProcess(pid)
+			if err != nil {
+				continue
+			}
+			if err := proc.Signal(syscall.SIGTERM); err != nil {
+				glog.Warningf("signal proc %v: %v", pid, err)
+			}
+			procs = append(procs, proc)
+		}
+
+		tick := time.NewTicker(10 * time.Millisecond)
+		timer := time.NewTimer(5 * time.Second)
+		for {
+			select {
+			case <-tick.C:
+				runnningprocs := []*os.Process{}
+				for _, proc := range procs {
+					err := proc.Signal(syscall.Signal(0))
+					if err == nil {
+						runnningprocs = append(runnningprocs, proc)
+						continue
+					}
+				}
+				procs = runnningprocs
+				if len(procs) == 0 {
+					return
+				}
+			case <-timer.C:
+				for _, proc := range procs {
+					proc.Signal(syscall.SIGKILL)
+				}
+				return
+			}
+		}
+
+	case "reload":
+		if *fPidfile == "" {
+			fmt.Fprintf(os.Stderr, "pidfile is empty")
+			return
+		}
+		pid, err := readPid(*fPidfile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "read pid file %v err: %v", *fPidfile, err)
+			return
+		}
+		proc, err := os.FindProcess(pid)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "find process %v err: %v", pid, err)
+			return
+		}
+		if err := proc.Signal(syscall.SIGHUP); err != nil {
+			fmt.Fprintf(os.Stderr, "signal process %v err: %v", pid, err)
+		}
+		return
+
+	case "restart":
+		if *fPidfile == "" {
+			fmt.Fprintf(os.Stderr, "pidfile is empty")
+			return
+		}
+		pid, err := readPid(*fPidfile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "read pid file %v err: %v\n", *fPidfile, err)
+			return
+		}
+		proc, err := os.FindProcess(pid)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "find process %v err: %v\n", pid, err)
+			return
+		}
+
+		if err := proc.Signal(syscall.SIGQUIT); err != nil {
+			fmt.Fprintf(os.Stderr, "signal process %v err: %v", pid, err)
+		}
+
+		done, err := isProcStopped(proc, 5*time.Second)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "wait watchdog exit: %v\n", err)
+		}
+		if !done {
+			fmt.Fprintf(os.Stderr, "failed: force kill\n")
+			proc.Kill()
+		}
+
+		pids, _ := app.FindProcesses()
+		fmt.Printf("current running pids: %v\n", pids)
+		return
+	default:
+		flag.Usage()
+		return
+	}
+}
+
+func isProcStopped(proc *os.Process, timeout time.Duration) (bool, error) {
+	ticker := time.NewTicker(10 * time.Millisecond)
+	timer := time.NewTicker(5 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			err := proc.Signal(syscall.Signal(0))
+			if err == nil {
+				continue
+			}
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "no such process") || strings.Contains(errMsg, "process already finished") {
+				return true, nil
+			}
+			return false, err
+		case <-timer.C:
+			return false, errors.New("timeout")
+		}
+	}
+
 }

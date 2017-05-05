@@ -1,6 +1,7 @@
 package all
 
 import (
+	//
 	_ "github.com/influxdata/telegraf/plugins/inputs/amqp_consumer"
 	_ "github.com/influxdata/telegraf/plugins/inputs/cgroup"
 	_ "github.com/influxdata/telegraf/plugins/inputs/conntrack"
@@ -18,6 +19,7 @@ import (
 	_ "github.com/influxdata/telegraf/plugins/inputs/iptables"
 	_ "github.com/influxdata/telegraf/plugins/inputs/logparser"
 	_ "github.com/influxdata/telegraf/plugins/inputs/mongodb"
+	_ "github.com/influxdata/telegraf/plugins/inputs/monitor"
 	_ "github.com/influxdata/telegraf/plugins/inputs/mysql"
 	_ "github.com/influxdata/telegraf/plugins/inputs/nats_consumer"
 	_ "github.com/influxdata/telegraf/plugins/inputs/net_response"

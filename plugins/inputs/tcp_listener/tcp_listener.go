@@ -3,9 +3,10 @@ package tcp_listener
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"net"
 	"sync"
+
+	"github.com/golang/glog"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/internal"
@@ -86,7 +87,7 @@ func (t *TcpListener) Start(acc telegraf.Accumulator) error {
 	t.Lock()
 	defer t.Unlock()
 
-	log.Println("W! DEPRECATED: the TCP listener plugin has been deprecated " +
+	glog.Error("DEPRECATED: the TCP listener plugin has been deprecated " +
 		"in favor of the socket_listener plugin " +
 		"(https://github.com/influxdata/telegraf/tree/master/plugins/inputs/socket_listener)")
 
@@ -114,16 +115,16 @@ func (t *TcpListener) Start(acc telegraf.Accumulator) error {
 	address, _ := net.ResolveTCPAddr("tcp", t.ServiceAddress)
 	t.listener, err = net.ListenTCP("tcp", address)
 	if err != nil {
-		log.Fatalf("ERROR: ListenUDP - %s", err)
+		glog.Fatal("ERROR: ListenUDP - %s", err)
 		return err
 	}
-	log.Println("I! TCP server listening on: ", t.listener.Addr().String())
+	glog.Error("TCP server listening on: ", t.listener.Addr().String())
 
 	t.wg.Add(2)
 	go t.tcpListen()
 	go t.tcpParser()
 
-	log.Printf("I! Started TCP listener service on %s\n", t.ServiceAddress)
+	glog.Infof("Started TCP listener service on %s\n", t.ServiceAddress)
 	return nil
 }
 
@@ -150,7 +151,7 @@ func (t *TcpListener) Stop() {
 
 	t.wg.Wait()
 	close(t.in)
-	log.Println("I! Stopped TCP listener service on ", t.ServiceAddress)
+	glog.Error("Stopped TCP listener service on ", t.ServiceAddress)
 }
 
 // tcpListen listens for incoming TCP connections.
@@ -191,8 +192,8 @@ func (t *TcpListener) refuser(conn *net.TCPConn) {
 		" reached, closing.\nYou may want to increase max_tcp_connections in"+
 		" the Telegraf tcp listener configuration.\n", t.MaxTCPConnections)
 	conn.Close()
-	log.Printf("I! Refused TCP Connection from %s", conn.RemoteAddr())
-	log.Printf("I! WARNING: Maximum TCP Connections reached, you may want to" +
+	glog.Infof("Refused TCP Connection from %s", conn.RemoteAddr())
+	glog.Infof("WARNING: Maximum TCP Connections reached, you may want to" +
 		" adjust max_tcp_connections")
 }
 
@@ -235,7 +236,7 @@ func (t *TcpListener) handler(conn *net.TCPConn, id string) {
 			default:
 				t.drops++
 				if t.drops == 1 || t.drops%t.AllowedPendingMessages == 0 {
-					log.Printf(dropwarn, t.drops)
+					glog.Infof(dropwarn, t.drops)
 				}
 			}
 		}
@@ -268,7 +269,7 @@ func (t *TcpListener) tcpParser() error {
 			} else {
 				t.malformed++
 				if t.malformed == 1 || t.malformed%1000 == 0 {
-					log.Printf(malformedwarn, t.malformed)
+					glog.Infof(malformedwarn, t.malformed)
 				}
 			}
 		}

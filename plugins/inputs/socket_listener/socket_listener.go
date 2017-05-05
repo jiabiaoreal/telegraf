@@ -4,12 +4,12 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 	"strings"
 	"sync"
 
+	"github.com/golang/glog"
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/internal"
 	"github.com/influxdata/telegraf/plugins/inputs"
@@ -225,7 +225,7 @@ func (sl *SocketListener) Start(acc telegraf.Accumulator) error {
 			if srb, ok := l.(setReadBufferer); ok {
 				srb.SetReadBuffer(sl.ReadBufferSize)
 			} else {
-				log.Printf("W! Unable to set read buffer on a %s socket", spl[0])
+				glog.Warningf(" Unable to set read buffer on a %s socket", spl[0])
 			}
 		}
 
@@ -246,7 +246,7 @@ func (sl *SocketListener) Start(acc telegraf.Accumulator) error {
 			if srb, ok := pc.(setReadBufferer); ok {
 				srb.SetReadBuffer(sl.ReadBufferSize)
 			} else {
-				log.Printf("W! Unable to set read buffer on a %s socket", spl[0])
+				glog.Warningf(" Unable to set read buffer on a %s socket", spl[0])
 			}
 		}
 

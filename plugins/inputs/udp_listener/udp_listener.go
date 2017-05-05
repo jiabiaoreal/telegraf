@@ -2,10 +2,11 @@ package udp_listener
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/golang/glog"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
@@ -94,7 +95,7 @@ func (u *UdpListener) Start(acc telegraf.Accumulator) error {
 	u.Lock()
 	defer u.Unlock()
 
-	log.Println("W! DEPRECATED: the UDP listener plugin has been deprecated " +
+	glog.Error("DEPRECATED: the UDP listener plugin has been deprecated " +
 		"in favor of the socket_listener plugin " +
 		"(https://github.com/influxdata/telegraf/tree/master/plugins/inputs/socket_listener)")
 
@@ -113,7 +114,7 @@ func (u *UdpListener) Start(acc telegraf.Accumulator) error {
 	u.wg.Add(1)
 	go u.udpParser()
 
-	log.Printf("I! Started UDP listener service on %s (ReadBuffer: %d)\n", u.ServiceAddress, u.UDPBufferSize)
+	glog.Infof("Started UDP listener service on %s (ReadBuffer: %d)\n", u.ServiceAddress, u.UDPBufferSize)
 	return nil
 }
 
@@ -124,7 +125,7 @@ func (u *UdpListener) Stop() {
 	u.wg.Wait()
 	u.listener.Close()
 	close(u.in)
-	log.Println("I! Stopped UDP listener service on ", u.ServiceAddress)
+	glog.Error("Stopped UDP listener service on ", u.ServiceAddress)
 }
 
 func (u *UdpListener) udpListen() error {
@@ -137,7 +138,7 @@ func (u *UdpListener) udpListen() error {
 		return fmt.Errorf("E! Error: ListenUDP - %s", err)
 	}
 
-	log.Println("I! UDP server listening on: ", u.listener.LocalAddr().String())
+	glog.Error("UDP server listening on: ", u.listener.LocalAddr().String())
 
 	if u.UDPBufferSize > 0 {
 		err = u.listener.SetReadBuffer(u.UDPBufferSize) // if we want to move away from OS default
@@ -166,7 +167,7 @@ func (u *UdpListener) udpListenLoop() {
 			if err != nil {
 				if err, ok := err.(net.Error); ok && err.Timeout() {
 				} else {
-					log.Printf("E! Error: %s\n", err.Error())
+					glog.Errorf("Error: %s\n", err.Error())
 				}
 				continue
 			}
@@ -180,7 +181,7 @@ func (u *UdpListener) udpListenLoop() {
 			default:
 				u.drops++
 				if u.drops == 1 || u.drops%u.AllowedPendingMessages == 0 {
-					log.Printf(dropwarn, u.drops)
+					glog.Infof(dropwarn, u.drops)
 				}
 			}
 		}
@@ -208,7 +209,7 @@ func (u *UdpListener) udpParser() error {
 			} else {
 				u.malformed++
 				if u.malformed == 1 || u.malformed%1000 == 0 {
-					log.Printf(malformedwarn, u.malformed)
+					glog.Infof(malformedwarn, u.malformed)
 				}
 			}
 		}

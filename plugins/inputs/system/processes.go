@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
+	"github.com/golang/glog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -121,7 +121,7 @@ func (p *Processes) gatherFromPS(fields map[string]interface{}) error {
 		case '?':
 			fields["unknown"] = fields["unknown"].(int64) + int64(1)
 		default:
-			log.Printf("I! processes: Unknown state [ %s ] from ps",
+			glog.Infof("processes: Unknown state [ %s ] from ps",
 				string(status[0]))
 		}
 		fields["total"] = fields["total"].(int64) + int64(1)
@@ -174,14 +174,14 @@ func (p *Processes) gatherFromProc(fields map[string]interface{}) error {
 		case 'W':
 			fields["paging"] = fields["paging"].(int64) + int64(1)
 		default:
-			log.Printf("I! processes: Unknown state [ %s ] in file %s",
+			glog.Infof("processes: Unknown state [ %s ] in file %s",
 				string(stats[0][0]), filename)
 		}
 		fields["total"] = fields["total"].(int64) + int64(1)
 
 		threads, err := strconv.Atoi(string(stats[17]))
 		if err != nil {
-			log.Printf("I! processes: Error parsing thread count: %s", err)
+			glog.Infof("processes: Error parsing thread count: %s", err)
 			continue
 		}
 		fields["total_threads"] = fields["total_threads"].(int64) + int64(threads)

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -16,6 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"we.com/jiabiao/common/yaml"
+
+	"github.com/golang/glog"
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/internal"
 	"github.com/influxdata/telegraf/internal/models"
@@ -32,15 +34,73 @@ import (
 
 var (
 	// Default input plugins
-	inputDefaults = []string{"cpu", "mem", "swap", "system", "kernel",
-		"processes", "disk", "diskio"}
+	inputDefaults = []string{"cpu", "mem", "swap", "system", "kernel", "net",
+		"processes", "disk", "diskio", "monitor", "hostStat"}
 
 	// Default output plugins
 	outputDefaults = []string{"influxdb"}
 
 	// envVarRe is a regex to find environment variables in the config file
 	envVarRe = regexp.MustCompile(`\$\w+`)
+
+	// defaultGlobalConfig default global config
+	defaultGlobalConfig = globalConfig{
+		EtcdConfigPath: "/etc/telegraf/etcd.yml",
+		SendAlert:      false,
+		AlertAPI:       "http://alarm.we.com/api/v1/alerts",
+		CtrlScript:     "/etc/telegraf/scripts/ctrl.sh", //  ctr.sh  java|nginx|es|mq  start|stop|restart  [[[[project] [bin]] [version]] [pid]]
+	}
+
+	currentglobalConfig = &defaultGlobalConfig
 )
+
+// globalConfig global configs
+type globalConfig struct {
+	EtcdConfigPath string `json:"etcdConfigFile"`
+	SendAlert      bool   `json:"sendAlert"`
+	AlertAPI       string `json:"alertAPI"`
+	CtrlScript     string `json:"ctrlScript"`
+}
+
+// LoadGlobalConfig from file
+func LoadGlobalConfig(fpath string) error {
+	contents, err := ioutil.ReadFile(fpath)
+	if err != nil {
+		return err
+	}
+	// ugh windows why
+	contents = trimBOM(contents)
+	reader := bytes.NewReader(contents)
+	cfg := &globalConfig{}
+
+	coder := yaml.NewYAMLOrJSONDecoder(reader, 4)
+	if err = coder.Decode(cfg); err != nil {
+		return err
+	}
+
+	currentglobalConfig = cfg
+	return nil
+}
+
+// SendAlert or not
+func SendAlert() bool {
+	return currentglobalConfig.SendAlert
+}
+
+// GetEtcdConfigFile returns file path of etcd config
+func GetEtcdConfigFile() string {
+	return currentglobalConfig.EtcdConfigPath
+}
+
+// GetAlertAPI returns alert api endpoint
+func GetAlertAPI() string {
+	return currentglobalConfig.AlertAPI
+}
+
+// GetCtrlScriptPath returns control script path
+func GetCtrlScriptPath() string {
+	return currentglobalConfig.CtrlScript
+}
 
 // Config specifies the URL/user/password for the database that telegraf
 // will be logging to, as well as all the plugins that the user has
@@ -510,7 +570,7 @@ func PrintOutputConfig(name string) error {
 func (c *Config) LoadDirectory(path string) error {
 	walkfn := func(thispath string, info os.FileInfo, _ error) error {
 		if info == nil {
-			log.Printf("W! Telegraf is not permitted to read %s", thispath)
+			glog.Warningf(" Telegraf is not permitted to read %s", thispath)
 			return nil
 		}
 		if info.IsDir() {
@@ -543,7 +603,7 @@ func getDefaultConfigPath() (string, error) {
 	}
 	for _, path := range []string{envfile, homefile, etcfile} {
 		if _, err := os.Stat(path); err == nil {
-			log.Printf("I! Using config file: %s", path)
+			glog.Info("Using config file: %s", path)
 			return path, nil
 		}
 	}
@@ -574,7 +634,7 @@ func (c *Config) LoadConfig(path string) error {
 				return fmt.Errorf("%s: invalid configuration", path)
 			}
 			if err = toml.UnmarshalTable(subTable, c.Tags); err != nil {
-				log.Printf("E! Could not parse [global_tags] config\n")
+				glog.Errorf("Could not parse [global_tags] config\n")
 				return fmt.Errorf("Error parsing %s, %s", path, err)
 			}
 		}
@@ -587,7 +647,7 @@ func (c *Config) LoadConfig(path string) error {
 			return fmt.Errorf("%s: invalid configuration", path)
 		}
 		if err = toml.UnmarshalTable(subTable, c.Agent); err != nil {
-			log.Printf("E! Could not parse [agent] config\n")
+			glog.Errorf("Could not parse [agent] config\n")
 			return fmt.Errorf("Error parsing %s, %s", path, err)
 		}
 	}
@@ -883,7 +943,7 @@ func buildAggregator(name string, tbl *ast.Table) (*models.AggregatorConfig, err
 				var err error
 				conf.DropOriginal, err = strconv.ParseBool(b.Value)
 				if err != nil {
-					log.Printf("Error parsing boolean value for %s: %s\n", name, err)
+					glog.Errorf("Error parsing boolean value for %s: %s\n", name, err)
 				}
 			}
 		}
@@ -917,7 +977,7 @@ func buildAggregator(name string, tbl *ast.Table) (*models.AggregatorConfig, err
 	if node, ok := tbl.Fields["tags"]; ok {
 		if subtbl, ok := node.(*ast.Table); ok {
 			if err := toml.UnmarshalTable(subtbl, conf.Tags); err != nil {
-				log.Printf("Could not parse tags for input %s\n", name)
+				glog.Errorf("Could not parse tags for input %s\n", name)
 			}
 		}
 	}
@@ -956,7 +1016,7 @@ func buildProcessor(name string, tbl *ast.Table) (*models.ProcessorConfig, error
 				var err error
 				conf.Order, err = strconv.ParseInt(b.Value, 10, 64)
 				if err != nil {
-					log.Printf("Error parsing int value for %s: %s\n", name, err)
+					glog.Errorf("Error parsing int value for %s: %s\n", name, err)
 				}
 			}
 		}
@@ -1154,7 +1214,7 @@ func buildInput(name string, tbl *ast.Table) (*models.InputConfig, error) {
 	if node, ok := tbl.Fields["tags"]; ok {
 		if subtbl, ok := node.(*ast.Table); ok {
 			if err := toml.UnmarshalTable(subtbl, cp.Tags); err != nil {
-				log.Printf("E! Could not parse tags for input %s\n", name)
+				glog.Errorf("Could not parse tags for input %s\n", name)
 			}
 		}
 	}

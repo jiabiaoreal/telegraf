@@ -1,9 +1,10 @@
 package mongodb
 
 import (
-	"log"
 	"net/url"
 	"time"
+
+	"github.com/golang/glog"
 
 	"github.com/influxdata/telegraf"
 	"gopkg.in/mgo.v2"
@@ -61,7 +62,7 @@ func (s *Server) gatherData(acc telegraf.Accumulator, gatherDbStats bool) error 
 		names := []string{}
 		names, err = s.Session.DatabaseNames()
 		if err != nil {
-			log.Println("E! Error getting database names (" + err.Error() + ")")
+			glog.Error("Error getting database names (" + err.Error() + ")")
 		}
 		for _, db_name := range names {
 			db_stat_line := &DbStatsData{}
@@ -72,7 +73,7 @@ func (s *Server) gatherData(acc telegraf.Accumulator, gatherDbStats bool) error 
 				},
 			}, db_stat_line)
 			if err != nil {
-				log.Println("E! Error getting db stats from " + db_name + "(" + err.Error() + ")")
+				glog.Error("Error getting db stats from " + db_name + "(" + err.Error() + ")")
 			}
 			db := &Db{
 				Name:        db_name,

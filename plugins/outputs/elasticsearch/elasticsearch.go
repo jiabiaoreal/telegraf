@@ -3,7 +3,7 @@ package elasticsearch
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/golang/glog"
 	"strconv"
 	"strings"
 	"time"
@@ -92,7 +92,7 @@ func (a *Elasticsearch) Connect() error {
 		clientOptions = append(clientOptions,
 			elastic.SetHealthcheck(false),
 		)
-		log.Printf("D! Elasticsearch output: disabling health check")
+		glog.V(4).Infof("Elasticsearch output: disabling health check")
 	}
 
 	client, err := elastic.NewClient(clientOptions...)
@@ -114,7 +114,7 @@ func (a *Elasticsearch) Connect() error {
 		return fmt.Errorf("Elasticsearch version not supported: %s", esVersion)
 	}
 
-	log.Println("I! Elasticsearch version: " + esVersion)
+	glog.Error("Elasticsearch version: " + esVersion)
 
 	a.Client = client
 
@@ -167,7 +167,7 @@ func (a *Elasticsearch) Write(metrics []telegraf.Metric) error {
 
 	if res.Errors {
 		for id, err := range res.Failed() {
-			log.Printf("E! Elasticsearch indexing failure, id: %d, error: %s, caused by: %s, %s", id, err.Error.Reason, err.Error.CausedBy["reason"], err.Error.CausedBy["type"])
+			glog.Errorf("Elasticsearch indexing failure, id: %d, error: %s, caused by: %s, %s", id, err.Error.Reason, err.Error.CausedBy["reason"], err.Error.CausedBy["type"])
 		}
 		return fmt.Errorf("W! Elasticsearch failed to index %d metrics", len(res.Failed()))
 	}
@@ -258,11 +258,11 @@ func (a *Elasticsearch) manageTemplate(ctx context.Context) error {
 			return fmt.Errorf("Elasticsearch failed to create index template %s : %s", a.TemplateName, errCreateTemplate)
 		}
 
-		log.Printf("D! Elasticsearch template %s created or updated\n", a.TemplateName)
+		glog.V(4).Infof("Elasticsearch template %s created or updated\n", a.TemplateName)
 
 	} else {
 
-		log.Println("D! Found existing Elasticsearch template. Skipping template management")
+		glog.V(4).Info("Found existing Elasticsearch template. Skipping template management")
 
 	}
 	return nil

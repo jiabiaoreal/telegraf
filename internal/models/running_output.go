@@ -1,7 +1,7 @@
 package models
 
 import (
-	"log"
+	"github.com/golang/glog"
 	"time"
 
 	"github.com/influxdata/telegraf"
@@ -123,7 +123,7 @@ func (ro *RunningOutput) AddMetric(m telegraf.Metric) {
 func (ro *RunningOutput) Write() error {
 	nFails, nMetrics := ro.failMetrics.Len(), ro.metrics.Len()
 	ro.BufferSize.Set(int64(nFails + nMetrics))
-	log.Printf("D! Output [%s] buffer fullness: %d / %d metrics. ",
+	glog.V(4).Infof("Output [%s] buffer fullness: %d / %d metrics. ",
 		ro.Name, nFails+nMetrics, ro.MetricBufferLimit)
 	var err error
 	if !ro.failMetrics.IsEmpty() {
@@ -173,7 +173,7 @@ func (ro *RunningOutput) write(metrics []telegraf.Metric) error {
 	err := ro.Output.Write(metrics)
 	elapsed := time.Since(start)
 	if err == nil {
-		log.Printf("D! Output [%s] wrote batch of %d metrics in %s\n",
+		glog.V(4).Infof("Output [%s] wrote batch of %d metrics in %s\n",
 			ro.Name, nMetrics, elapsed)
 		ro.MetricsWritten.Incr(int64(nMetrics))
 		ro.WriteTime.Incr(elapsed.Nanoseconds())

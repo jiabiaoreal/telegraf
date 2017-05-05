@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"os"
 	"os/exec"
@@ -17,6 +16,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/golang/glog"
 )
 
 const alphanum string = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -208,7 +209,7 @@ func WaitTimeout(c *exec.Cmd, timeout time.Duration) error {
 		return err
 	case <-timer.C:
 		if err := c.Process.Kill(); err != nil {
-			log.Printf("E! FATAL error killing process: %s", err)
+			glog.Errorf("FATAL error killing process: %s", err)
 			return err
 		}
 		// wait for the command to return after killing it

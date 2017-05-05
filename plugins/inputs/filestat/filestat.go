@@ -4,7 +4,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"log"
+	"github.com/golang/glog"
 	"os"
 
 	"github.com/influxdata/telegraf"
@@ -82,7 +82,7 @@ func (f *FileStat) Gather(acc telegraf.Accumulator) error {
 			}
 
 			if fileInfo == nil {
-				log.Printf("E! Unable to get info for file [%s], possible permissions issue",
+				glog.Errorf("Unable to get info for file [%s], possible permissions issue",
 					fileName)
 			} else {
 				fields["size_bytes"] = fileInfo.Size()

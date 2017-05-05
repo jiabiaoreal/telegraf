@@ -1,9 +1,9 @@
 package agent
 
 import (
-	"log"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/selfstat"
 )
@@ -84,7 +84,7 @@ func (ac *accumulator) AddError(err error) {
 	}
 	NErrors.Incr(1)
 	//TODO suppress/throttle consecutive duplicate errors?
-	log.Printf("E! Error in plugin [%s]: %s", ac.maker.Name(), err)
+	glog.Errorf("Error in plugin [%s]: %s", ac.maker.Name(), err)
 }
 
 // SetPrecision takes two time.Duration objects. If the first is non-zero,

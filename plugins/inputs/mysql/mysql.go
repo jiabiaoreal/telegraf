@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	"log"
+	"github.com/golang/glog"
 	"strconv"
 	"strings"
 	"sync"
@@ -904,7 +904,7 @@ func (m *Mysql) gatherGlobalStatuses(db *sql.DB, serv string, acc telegraf.Accum
 	if m.GatherProcessList {
 		conn_rows, err := db.Query("SELECT user, sum(1) FROM INFORMATION_SCHEMA.PROCESSLIST GROUP BY user")
 		if err != nil {
-			log.Printf("E! MySQL Error gathering process list: %s", err)
+			glog.Errorf("MySQL Error gathering process list: %s", err)
 		} else {
 			for conn_rows.Next() {
 				var user string
@@ -931,7 +931,7 @@ func (m *Mysql) gatherGlobalStatuses(db *sql.DB, serv string, acc telegraf.Accum
 	if m.GatherUserStatistics {
 		conn_rows, err := db.Query("select user, total_connections, concurrent_connections, connected_time, busy_time, cpu_time, bytes_received, bytes_sent, binlog_bytes_written, rows_fetched, rows_updated, table_rows_read, select_commands, update_commands, other_commands, commit_transactions, rollback_transactions, denied_connections, lost_connections, access_denied, empty_queries, total_ssl_connections FROM INFORMATION_SCHEMA.USER_STATISTICS GROUP BY user")
 		if err != nil {
-			log.Printf("E! MySQL Error gathering user stats: %s", err)
+			glog.Errorf("MySQL Error gathering user stats: %s", err)
 		} else {
 			for conn_rows.Next() {
 				var user string

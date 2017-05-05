@@ -2,7 +2,7 @@ package natsconsumer
 
 import (
 	"fmt"
-	"log"
+	"github.com/golang/glog"
 	"sync"
 
 	"github.com/influxdata/telegraf"
@@ -147,7 +147,7 @@ func (n *natsConsumer) Start(acc telegraf.Accumulator) error {
 	// Start the message reader
 	n.wg.Add(1)
 	go n.receiver()
-	log.Printf("I! Started the NATS consumer service, nats: %v, subjects: %v, queue: %v\n",
+	glog.Infof("Started the NATS consumer service, nats: %v, subjects: %v, queue: %v\n",
 		n.Conn.ConnectedUrl(), n.Subjects, n.QueueGroup)
 
 	return nil

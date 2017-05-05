@@ -2,7 +2,7 @@ package papertrail
 
 import (
 	"encoding/json"
-	"log"
+	"github.com/golang/glog"
 	"net/http"
 	"time"
 
@@ -17,7 +17,7 @@ type PapertrailWebhook struct {
 
 func (pt *PapertrailWebhook) Register(router *mux.Router, acc telegraf.Accumulator) {
 	router.HandleFunc(pt.Path, pt.eventHandler).Methods("POST")
-	log.Printf("I! Started the papertrail_webhook on %s", pt.Path)
+	glog.Infof("Started the papertrail_webhook on %s", pt.Path)
 	pt.acc = acc
 }
 

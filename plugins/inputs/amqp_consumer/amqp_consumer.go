@@ -2,7 +2,7 @@ package amqp_consumer
 
 import (
 	"fmt"
-	"log"
+	"github.com/golang/glog"
 	"strings"
 	"sync"
 	"time"
@@ -150,11 +150,11 @@ func (a *AMQPConsumer) Start(acc telegraf.Accumulator) error {
 			return
 		}
 
-		log.Printf("I! AMQP consumer connection closed: %s; trying to reconnect", err)
+		glog.Infof("AMQP consumer connection closed: %s; trying to reconnect", err)
 		for {
 			msgs, err := a.connect(amqpConf)
 			if err != nil {
-				log.Printf("E! AMQP connection failed: %s", err)
+				glog.Errorf("AMQP connection failed: %s", err)
 				time.Sleep(10 * time.Second)
 				continue
 			}
@@ -238,7 +238,7 @@ func (a *AMQPConsumer) connect(amqpConf *amqp.Config) (<-chan amqp.Delivery, err
 		return nil, fmt.Errorf("Failed establishing connection to queue: %s", err)
 	}
 
-	log.Println("I! Started AMQP consumer")
+	glog.Error("Started AMQP consumer")
 	return msgs, err
 }
 
@@ -248,7 +248,7 @@ func (a *AMQPConsumer) process(msgs <-chan amqp.Delivery, acc telegraf.Accumulat
 	for d := range msgs {
 		metrics, err := a.parser.Parse(d.Body)
 		if err != nil {
-			log.Printf("E! %v: error parsing metric - %v", err, string(d.Body))
+			glog.Errorf("%v: error parsing metric - %v", err, string(d.Body))
 		} else {
 			for _, m := range metrics {
 				acc.AddFields(m.Name(), m.Fields(), m.Tags(), m.Time())
@@ -257,17 +257,17 @@ func (a *AMQPConsumer) process(msgs <-chan amqp.Delivery, acc telegraf.Accumulat
 
 		d.Ack(false)
 	}
-	log.Printf("I! AMQP consumer queue closed")
+	glog.Infof("AMQP consumer queue closed")
 }
 
 func (a *AMQPConsumer) Stop() {
 	err := a.conn.Close()
 	if err != nil && err != amqp.ErrClosed {
-		log.Printf("E! Error closing AMQP connection: %s", err)
+		glog.Errorf("Error closing AMQP connection: %s", err)
 		return
 	}
 	a.wg.Wait()
-	log.Println("I! Stopped AMQP service")
+	glog.Error("Stopped AMQP service")
 }
 
 func init() {
