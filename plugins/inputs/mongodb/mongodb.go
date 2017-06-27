@@ -4,13 +4,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/internal"
 	"github.com/influxdata/telegraf/plugins/inputs"
@@ -79,7 +79,7 @@ func (m *MongoDB) Gather(acc telegraf.Accumulator) error {
 			// Preserve backwards compatibility for hostnames without a
 			// scheme, broken in go 1.8. Remove in Telegraf 2.0
 			serv = "mongodb://" + serv
-			log.Printf("W! [inputs.mongodb] Using %q as connection URL; please update your configuration to use an URL", serv)
+			glog.Warningf("W! [inputs.mongodb] Using %q as connection URL; please update your configuration to use an URL", serv)
 			m.Servers[i] = serv
 		}
 

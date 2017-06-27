@@ -3,17 +3,16 @@ package grok
 import (
 	"bufio"
 	"fmt"
-	"github.com/golang/glog"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/vjeantet/grok"
-
+	"github.com/golang/glog"
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/metric"
+	"github.com/vjeantet/grok"
 )
 
 var timeLayouts = map[string]string{
@@ -169,7 +168,7 @@ func (p *Parser) Compile() error {
 
 	p.loc, err = time.LoadLocation(p.Timezone)
 	if err != nil {
-		log.Printf("W! improper timezone supplied (%s), setting loc to UTC", p.Timezone)
+		glog.Warningf("improper timezone supplied (%s), setting loc to UTC", p.Timezone)
 		p.loc, _ = time.LoadLocation("UTC")
 	}
 

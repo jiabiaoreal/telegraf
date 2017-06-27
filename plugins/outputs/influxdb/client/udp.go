@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/url"
+
+	"github.com/golang/glog"
 )
 
 const (
@@ -91,7 +92,7 @@ func (c *udpClient) WriteStream(r io.Reader, contentLength int) (int, error) {
 				return totaln, err
 			}
 		} else {
-			log.Printf("E! Could not fit point into UDP payload; dropping")
+			glog.Errorf("E! Could not fit point into UDP payload; dropping")
 			// Scan forward until next line break to realign.
 			for {
 				nR, err := r.Read(c.buffer)

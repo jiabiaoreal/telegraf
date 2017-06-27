@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	"github.com/golang/glog"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/golang/glog"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/internal"
@@ -147,7 +148,7 @@ func (m *Mysql) Gather(acc telegraf.Accumulator) error {
 
 	tlsConfig, err := internal.GetTLSConfig(m.SSLCert, m.SSLKey, m.SSLCA, false)
 	if err != nil {
-		log.Printf("E! MySQL Error registering TLS config: %s", err)
+		glog.Errorf("E! MySQL Error registering TLS config: %s", err)
 	}
 
 	if tlsConfig != nil {

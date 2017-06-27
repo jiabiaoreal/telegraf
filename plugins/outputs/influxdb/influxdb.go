@@ -2,10 +2,11 @@ package influxdb
 
 import (
 	"fmt"
-	"github.com/golang/glog"
 	"math/rand"
 	"strings"
 	"time"
+
+	"github.com/golang/glog"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/internal"
@@ -188,14 +189,9 @@ func (i *InfluxDB) Write(metrics []telegraf.Metric) error {
 		if _, e := i.clients[n].WriteStream(r, bufsize); e != nil {
 			// If the database was not found, try to recreate it:
 			if strings.Contains(e.Error(), "database not found") {
-<<<<<<< HEAD
-				if errc := i.clients[n].Query("CREATE DATABASE  " + i.Database); errc != nil {
-					glog.Errorf("Error: Database %s not found and failed to recreate\n",
-=======
 				errc := i.clients[n].Query(fmt.Sprintf(`CREATE DATABASE "%s"`, qiReplacer.Replace(i.Database)))
 				if errc != nil {
-					log.Printf("E! Error: Database %s not found and failed to recreate\n",
->>>>>>> origin/org
+					glog.Errorf("Error: Database %s not found and failed to recreate\n",
 						i.Database)
 				}
 			}

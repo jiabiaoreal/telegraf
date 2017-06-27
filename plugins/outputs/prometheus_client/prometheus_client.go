@@ -3,13 +3,14 @@ package prometheus_client
 import (
 	"context"
 	"fmt"
-	"github.com/golang/glog"
 	"net/http"
 	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/golang/glog"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/internal"
@@ -157,7 +158,7 @@ func (p *PrometheusClient) Collect(ch chan<- prometheus.Metric) {
 
 			metric, err := prometheus.NewConstMetric(desc, family.ValueType, sample.Value, labels...)
 			if err != nil {
-				log.Printf("E! Error creating prometheus metric, "+
+				glog.Errorf("E! Error creating prometheus metric, "+
 					"key: %s, labels: %v,\nerr: %s\n",
 					name, labels, err.Error())
 			}
@@ -235,25 +236,6 @@ func (p *PrometheusClient) Write(metrics []telegraf.Metric) error {
 				mname = sanitize(fmt.Sprintf("%s_%s", point.Name(), fn))
 			}
 
-<<<<<<< HEAD
-			desc := prometheus.NewDesc(mname, "Telegraf collected metric", nil, l)
-			var metric prometheus.Metric
-			var err error
-
-			// switch for field type
-			switch val := val.(type) {
-			case int64:
-				metric, err = prometheus.NewConstMetric(desc, mType, float64(val))
-			case float64:
-				metric, err = prometheus.NewConstMetric(desc, mType, val)
-			default:
-				continue
-			}
-			if err != nil {
-				glog.Errorf("Error creating prometheus metric, "+
-					"key: %s, labels: %v,\nerr: %s\n",
-					mname, l, err.Error())
-=======
 			var fam *MetricFamily
 			var ok bool
 			if fam, ok = p.fam[mname]; !ok {
@@ -266,10 +248,9 @@ func (p *PrometheusClient) Write(metrics []telegraf.Metric) error {
 			} else {
 				if fam.ValueType != vt {
 					// Don't return an error since this would be a permanent error
-					log.Printf("Mixed ValueType for measurement %q; dropping point", point.Name())
+					glog.Infof("Mixed ValueType for measurement %q; dropping point", point.Name())
 					break
 				}
->>>>>>> origin/org
 			}
 
 			for k, _ := range sample.Labels {
