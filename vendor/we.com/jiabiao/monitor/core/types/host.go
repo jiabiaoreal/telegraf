@@ -13,7 +13,7 @@ type HostKeyConf struct {
 	Password   string `json:"password"`
 	PrivateKey string `json:"privateKey"`
 	Port       int    `json:"port"`
-	Agent      bool   `json:"aget"`
+	Agent      bool   `json:"agent"`
 	Timeout    string `json:"timeout"`
 	ScriptPath string `json:"scriptPath"`
 
@@ -116,7 +116,7 @@ type HostInfo struct {
 	Condition  HostCondition `json:"condition,omitempty"`
 	Msg        string        `json:"msg,omitempty"`
 
-	HostKey HostKeyConf `json:"-,omitempty"`
+	HostKey HostKeyConf `json:"-"`
 }
 
 // Validate  check if the hi is valid,  if not err is not nil

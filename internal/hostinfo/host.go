@@ -572,8 +572,7 @@ func watchHostConfig() {
 		func() {
 			defer runtime.HandleCrash()
 			r := hosts.NewRegistry(GetEnv())
-			ctx := context.Background()
-			if err := r.WatchConfig(ctx, GetHostID(), handleHostconfigEvent); err != nil {
+			if err := r.WatchConfig(context.Background(), GetHostID(), handleHostconfigEvent); err != nil {
 				glog.Errorf("watch host config: %v", err)
 			}
 		}()
@@ -589,6 +588,7 @@ func handleHostconfigEvent(event watch.Event) error {
 
 	switch event.Type {
 	case watch.Added, watch.Modified:
+		glog.Infof("host config changed to: %v", hc)
 		// update tags only
 		labels := hc.Labels
 		hostInfo.lock.Lock()
