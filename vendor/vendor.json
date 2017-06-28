@@ -948,14 +948,14 @@
 		{
 			"checksumSHA1": "5Vqk2cLuapJ9eBlGTQJGOy36SU4=",
 			"path": "we.com/jiabiao/monitor/registry/generic",
-			"revision": "c5500a061dd5940615698a6d1a7ca53a0d715f83",
+			"revision": "ccd634237b74184b6de8183715e0cc707021117b",
 			"revisionTime": "2017-06-28T07:08:24Z"
 		},
 		{
 			"checksumSHA1": "4BrFSFro1oYsg+J9Ocsz7kEpXaA=",
 			"path": "we.com/jiabiao/monitor/registry/hosts",
-			"revision": "d09e8c68d040a4976bf6771a121411d91c83d447",
-			"revisionTime": "2017-06-28T06:57:45Z"
+			"revision": "ccd634237b74184b6de8183715e0cc707021117b",
+			"revisionTime": "2017-06-28T07:08:24Z"
 		},
 		{
 			"checksumSHA1": "Ze5EyhyYitftNPhECDci7QyavO4=",

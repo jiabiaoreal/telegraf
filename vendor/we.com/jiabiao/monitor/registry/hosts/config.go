@@ -52,7 +52,7 @@ func (r *Registry) WatchConfig(ctx context.Context, hostID types.UUID,
 	}
 
 	key := etcd.GetHostConfigPath(r.env, hostID)
-	watcher, err := store.Watch(context.Background(), key, generic.Everything, false,
+	watcher, err := store.Watch(context.Background(), key, generic.Everything, true,
 		reflect.TypeOf(types.HostConfig{}))
 	if err != nil {
 		return err
