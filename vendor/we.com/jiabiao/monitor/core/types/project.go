@@ -100,7 +100,7 @@ type Instance struct {
 	User        string              `json:"user,omitempty"`
 	Host        string              `json:"host,omitempty"`
 	IP          string              `json:"ip,omitempty"`
-	Listening   []Addr              `json:"listening,omitempty"`
+	Listening   []Addr              `json:"listening,omitempyt"`
 	Pid         int                 `json:"pid,omitempty"`
 	ClusterName UUID                `json:"clusterName,omitempty"`
 	Env         ENV                 `json:"env,omitempty"`

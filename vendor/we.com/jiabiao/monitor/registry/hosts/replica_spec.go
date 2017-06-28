@@ -13,7 +13,7 @@ import (
 )
 
 // WatchHostReplicaSpec watch replicatSpec change for hostID
-func (r *Registry) WatchHostReplicaSpec(hostID types.UUID, handler watch.EventHandler) error {
+func (r *Registry) WatchHostReplicaSpec(ctx context.Context, hostID types.UUID, handler watch.EventHandler) error {
 	store, err := getStore()
 	if err != nil {
 		glog.Errorf("getStoreInstance error: %s", err)
@@ -47,12 +47,15 @@ func (r *Registry) WatchHostReplicaSpec(hostID types.UUID, handler watch.EventHa
 		case <-r.stopC:
 			watcher.Stop()
 			return nil
+		case <-ctx.Done():
+			watcher.Stop()
+			return nil
 		}
 	}
 }
 
 // WatchHostReplicaSpecs watch replicatSpec change for hostID
-func (r *Registry) WatchHostReplicaSpecs(handler watch.EventHandler) error {
+func (r *Registry) WatchHostReplicaSpecs(ctx context.Context, handler watch.EventHandler) error {
 	store, err := getStore()
 	if err != nil {
 		glog.Errorf("getStoreInstance error: %s", err)
@@ -84,6 +87,9 @@ func (r *Registry) WatchHostReplicaSpecs(handler watch.EventHandler) error {
 			}
 
 		case <-r.stopC:
+			watcher.Stop()
+			return nil
+		case <-ctx.Done():
 			watcher.Stop()
 			return nil
 		}

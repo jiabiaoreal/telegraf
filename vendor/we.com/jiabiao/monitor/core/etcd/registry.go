@@ -37,6 +37,11 @@ func GetHostEventPath(env types.ENV, hostid types.UUID) string {
 	return filepath.Join(hostEventPrex, string(env), string(hostid))
 }
 
+// GetHostConfigPath return etcd relative path
+func GetHostConfigPath(env types.ENV, hostid types.UUID) string {
+	return filepath.Join(hostConfigPrex, string(env), string(hostid))
+}
+
 // GetHostReplicaSpecPath return etcd relative path
 func GetHostReplicaSpecPath(env types.ENV, hostid types.UUID) string {
 	return filepath.Join(hostReplicaSpecPrex, string(env), string(hostid))
@@ -114,8 +119,13 @@ func GetClusterProbe(env types.ENV, typ types.ProjectType, cluster types.UUID) s
 	return filepath.Join(projectProbePrefix, string(env), string(typ), string(cluster))
 }
 
-// GetClusterVersionInfoPrefix  returns etcd version info prefix of type env
-func GetClusterVersionInfoPrefix(env types.ENV) string {
+// GetClusterVersionInfoPrefix returns etcd version info prefix of type env
+func GetClusterVersionInfoPrefix() string {
+	return projectVersionPrefix
+}
+
+// GetClusterVersionInfoPrefixOfEnv  returns etcd version info prefix of type env
+func GetClusterVersionInfoPrefixOfEnv(env types.ENV) string {
 	return filepath.Join(projectVersionPrefix, string(env))
 }
 

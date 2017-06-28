@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"reflect"
@@ -275,7 +276,7 @@ func (hrsm *HostReplicaSpecManager) WatchExpectedSpecUpdate() error {
 		log.Fatal("watch host relica spec: etcd client cannot be nil")
 	}
 
-	go hrsm.hostClient.WatchHostReplicaSpec(hostinfo.GetHostID(), hrsm.handleHostSpecEvent)
+	go hrsm.hostClient.WatchHostReplicaSpec(context.TODO(), hostinfo.GetHostID(), hrsm.handleHostSpecEvent)
 
 	return nil
 }

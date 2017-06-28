@@ -54,17 +54,17 @@ func (sc *HostKeyConf) GetConnectInfo() map[string]string {
 
 // HostConfig  host config infos
 type HostConfig struct {
-	HostID   string `json:"hostID,omitempty"`
-	HostName string `json:"hostName,omitempty"`
-	IP       string `json:"ip,omitempty"`
-	HostKey  string `json:"hostKey,omitempty"`
+	HostID   string            `json:"hostID,omitempty"`
+	HostName string            `json:"hostName,omitempty"`
+	IPs      map[string]string `json:"ips,omitempty"`
+	HostKey  string            `json:"hostKey,omitempty"`
 
 	ENV    ENV               `json:"env,omitempty"`
 	Labels map[string]string `json:"labels"` // labels are used as selectors
 
 	InputPlugins  []string          `json:"inputPlugins,omitempty"`
 	OutputPlugins []string          `json:"outputPlugins,omitempty"`
-	ReportTags    map[string]string `json:"reportTags"` // tags are use as agent global tags when report metrics
+	ReportTags    map[string]string `json:"reportTags,omitempty"` // tags are use as agent global tags when report metrics
 }
 
 // HostCondition  host condition happing
@@ -116,7 +116,7 @@ type HostInfo struct {
 	Condition  HostCondition `json:"condition,omitempty"`
 	Msg        string        `json:"msg,omitempty"`
 
-	HostKey HostKeyConf `json:",omitempty"`
+	HostKey HostKeyConf `json:"-,omitempty"`
 }
 
 // Validate  check if the hi is valid,  if not err is not nil

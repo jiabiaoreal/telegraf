@@ -38,6 +38,11 @@ var (
 	cliLock      sync.RWMutex
 )
 
+// IsInitialized  return true if this  package is intialized
+func IsInitialized() bool {
+	return clientConfig != nil
+}
+
 // SetEtcdConfig  set etcd config, this function can only called once at the server start time
 func SetEtcdConfig(cfg etcd.Config) {
 	if clientConfig != nil {
@@ -45,7 +50,7 @@ func SetEtcdConfig(cfg etcd.Config) {
 	}
 	cliLock.Lock()
 	defer cliLock.Unlock()
-    ncfg := clientv3.Config(cfg)
+	ncfg := clientv3.Config(cfg)
 	clientConfig = &ncfg
 }
 

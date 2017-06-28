@@ -928,46 +928,46 @@
 			"revisionTime": "2017-06-06T09:29:28Z"
 		},
 		{
-			"checksumSHA1": "xpW2/cTtNDiHCiVLSxgzLWOzxEQ=",
+			"checksumSHA1": "Bnk9LrPZEUmY1WDqZH+mlMmyC+Y=",
 			"path": "we.com/jiabiao/monitor/core/etcd",
-			"revision": "503a323e21fe22a2545efb8c5308adc34c5a7481",
-			"revisionTime": "2017-06-06T09:27:16Z"
+			"revision": "ccd968de2e5c688ad67ec0d80239be1ad02b1f34",
+			"revisionTime": "2017-06-28T06:23:20Z"
 		},
 		{
-			"checksumSHA1": "pTphhPnk0GSyYhTBKbzkWQqtPKA=",
+			"checksumSHA1": "9sH+gqwJLq5I2759E3FZ9V8SjRc=",
 			"path": "we.com/jiabiao/monitor/core/java",
-			"revision": "503a323e21fe22a2545efb8c5308adc34c5a7481",
-			"revisionTime": "2017-06-06T09:27:16Z"
+			"revision": "ccd968de2e5c688ad67ec0d80239be1ad02b1f34",
+			"revisionTime": "2017-06-28T06:23:20Z"
 		},
 		{
-			"checksumSHA1": "mtpLdfuYUEXgL16Xhk/yuKISFKs=",
+			"checksumSHA1": "Ul7XSB1DcVCRTk6BQzvtmwtriFI=",
 			"path": "we.com/jiabiao/monitor/core/types",
-			"revision": "503a323e21fe22a2545efb8c5308adc34c5a7481",
-			"revisionTime": "2017-06-06T09:27:16Z"
+			"revision": "ccd968de2e5c688ad67ec0d80239be1ad02b1f34",
+			"revisionTime": "2017-06-28T06:23:20Z"
 		},
 		{
-			"checksumSHA1": "AeKfjA9skpCbRfYcdwoR3uOlpDY=",
+			"checksumSHA1": "5Vqk2cLuapJ9eBlGTQJGOy36SU4=",
 			"path": "we.com/jiabiao/monitor/registry/generic",
-			"revision": "503a323e21fe22a2545efb8c5308adc34c5a7481",
-			"revisionTime": "2017-06-06T09:27:16Z"
+			"revision": "c5500a061dd5940615698a6d1a7ca53a0d715f83",
+			"revisionTime": "2017-06-28T07:08:24Z"
 		},
 		{
-			"checksumSHA1": "ZWCC+jDv7a3igBb3O0kjYEkGNnY=",
+			"checksumSHA1": "4BrFSFro1oYsg+J9Ocsz7kEpXaA=",
 			"path": "we.com/jiabiao/monitor/registry/hosts",
-			"revision": "503a323e21fe22a2545efb8c5308adc34c5a7481",
-			"revisionTime": "2017-06-06T09:27:16Z"
+			"revision": "d09e8c68d040a4976bf6771a121411d91c83d447",
+			"revisionTime": "2017-06-28T06:57:45Z"
 		},
 		{
-			"checksumSHA1": "eUqZ6VpqX6IIflc2wv9ZEev1STw=",
+			"checksumSHA1": "Ze5EyhyYitftNPhECDci7QyavO4=",
 			"path": "we.com/jiabiao/monitor/registry/instances",
-			"revision": "503a323e21fe22a2545efb8c5308adc34c5a7481",
-			"revisionTime": "2017-06-06T09:27:16Z"
+			"revision": "ccd968de2e5c688ad67ec0d80239be1ad02b1f34",
+			"revisionTime": "2017-06-28T06:23:20Z"
 		},
 		{
 			"checksumSHA1": "njhq9ai3mBLp1axWqj/hGhWP1OU=",
 			"path": "we.com/jiabiao/monitor/registry/watch",
-			"revision": "503a323e21fe22a2545efb8c5308adc34c5a7481",
-			"revisionTime": "2017-06-06T09:27:16Z"
+			"revision": "ccd968de2e5c688ad67ec0d80239be1ad02b1f34",
+			"revisionTime": "2017-06-28T06:23:20Z"
 		}
 	],
 	"rootPath": "github.com/influxdata/telegraf"

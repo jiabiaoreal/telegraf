@@ -283,6 +283,7 @@ func (hi *hostInfo) reportHostInfo() error {
 		SwapSize:   hinf.GetSwapSize(),
 		IPs:        hinf.GetIPs(),
 		UpdateTime: time.Now(),
+		Labels:     hinf.GetLabels(),
 	}
 
 	if hi.info.ENV != info.ENV {
@@ -302,7 +303,7 @@ func (hi *hostInfo) reportHostInfo() error {
 	hi.info = info
 	hi.lock.Unlock()
 
-	return hi.store.SaveHostInfoOf(&info)
+	return hi.store.SaveHostInfo(&info)
 }
 
 // Start starts the ServiceInput's service, whatever that may be

@@ -64,7 +64,7 @@ func (trs *TypeReplicaSpec) GetType() ProjectType {
 
 // Add add a spec to and exists  specs, InstanceNum will be the sum of two
 func (trs *TypeReplicaSpec) Add(crs ClusterReplicaSpec) {
-	glog.V(15).Infof("add cluster: %v", crs)
+	glog.V(25).Infof("add cluster: %v", crs)
 	cluster := fmt.Sprintf("%v%v%v", crs.ClusterName, FieldSperator, crs.Version)
 
 	trs.lock.Lock()
@@ -80,7 +80,11 @@ func (trs *TypeReplicaSpec) Add(crs ClusterReplicaSpec) {
 
 	crs.InstancesNum = old.InstancesNum + crs.InstancesNum
 
-	trs.tree.Insert(cluster, &crs)
+	if crs.InstancesNum == 0 {
+		trs.tree.Delete(cluster)
+	} else {
+		trs.tree.Insert(cluster, &crs)
+	}
 }
 
 // Update reset spec of cluster to crs
@@ -98,6 +102,9 @@ type TypeRangeFunc func(cluster UUID, value *ClusterReplicaSpec) bool
 
 // Range over the cluster map
 func (trs *TypeReplicaSpec) Range(f TypeRangeFunc) {
+	if trs == nil || trs.tree == nil {
+		return
+	}
 	trs.tree.Walk(func(k string, v interface{}) bool {
 		value := v.(*ClusterReplicaSpec)
 
@@ -111,6 +118,10 @@ func (trs *TypeReplicaSpec) Range(f TypeRangeFunc) {
 // Get return  spec of cluster, if not exist return nil
 // if cluster has no version info, we walkPrefix of the cluster
 func (trs *TypeReplicaSpec) Get(cluster UUID, version string) *ClusterReplicaSpec {
+	if trs == nil || trs.tree == nil {
+		return nil
+	}
+
 	trs.lock.RLock()
 	defer trs.lock.RUnlock()
 
@@ -245,6 +256,10 @@ func (hrs *HostReplicaSpec) Range(f HostRangeFunc) {
 
 // AddCluserSpec adds crs to hrs
 func (hrs *HostReplicaSpec) AddCluserSpec(crs ClusterReplicaSpec) {
+	if crs.InstancesNum == 0 {
+		return
+	}
+
 	typ := crs.Type
 	trs, ok := hrs.Get(typ)
 	if !ok {
@@ -269,6 +284,28 @@ func (hrs *HostReplicaSpec) String() string {
 		return true
 	})
 	return strings.TrimLeft(ret, "\n")
+}
+
+// MarshalJSON implement json Marshaler interface
+func (hrs *HostReplicaSpec) MarshalJSON() ([]byte, error) {
+	if hrs == nil {
+		return []byte{}, nil
+	}
+
+	ret := map[ProjectType]map[UUID]*ClusterReplicaSpec{}
+
+	hrs.Range(func(pt ProjectType, v *TypeReplicaSpec) bool {
+		ret[pt] = map[UUID]*ClusterReplicaSpec{}
+		tmap := ret[pt]
+		v.Range(func(c UUID, cv *ClusterReplicaSpec) bool {
+			key := UUID(fmt.Sprintf("%v%v%v", cv.ClusterName, FieldSperator, cv.Version))
+			tmap[key] = cv
+			return true
+		})
+		return true
+	})
+
+	return json.Marshal(ret)
 }
 
 // UnmarshalJSON  implements marshal interface
@@ -297,28 +334,6 @@ func (hrs *HostReplicaSpec) UnmarshalJSON(data []byte) error {
 	return merr.ErrorOrNil()
 }
 
-// MarshalJSON implement json Marshaler interface
-func (hrs *HostReplicaSpec) MarshalJSON() ([]byte, error) {
-	if hrs == nil {
-		return []byte{}, nil
-	}
-
-	ret := map[ProjectType]map[UUID]*ClusterReplicaSpec{}
-
-	hrs.Range(func(pt ProjectType, v *TypeReplicaSpec) bool {
-		ret[pt] = map[UUID]*ClusterReplicaSpec{}
-		tmap := ret[pt]
-		v.Range(func(c UUID, cv *ClusterReplicaSpec) bool {
-			key := UUID(fmt.Sprintf("%v%v%v", cv.ClusterName, FieldSperator, cv.Version))
-			tmap[key] = cv
-			return true
-		})
-		return true
-	})
-
-	return json.Marshal(ret)
-}
-
 // data is config of a cluster
 func _parseUnmarshalData(data map[string]interface{}, typeValue *TypeReplicaSpec, prefixKey string, typ ProjectType) error {
 	if len(data) == 0 {
@@ -336,11 +351,20 @@ func _parseUnmarshalData(data map[string]interface{}, typeValue *TypeReplicaSpec
 	for cluster, value := range data {
 		tmpKey := fmt.Sprintf("%v%v%v", prefixKey, FieldSperator, cluster)
 		tmpKey = strings.TrimLeft(tmpKey, FieldSperator)
-		idx := strings.LastIndex(tmpKey, FieldSperator)
-		version := tmpKey[idx+1:]
-		key := UUID(tmpKey[:idx])
+
 		switch av := value.(type) {
 		case float64:
+			idx := strings.LastIndex(tmpKey, FieldSperator)
+			if idx < 0 {
+				err := fmt.Errorf("cluster name cannot be empty: %v", tmpKey)
+				merr = multierror.Append(merr, err)
+				continue
+			}
+
+			key := UUID(tmpKey[:idx])
+			version := tmpKey[idx:]
+			version = strings.TrimLeft(version, FieldSperator)
+
 			if cfg := typeValue.Get(key, version); cfg != nil {
 				glog.Warningf("config specify more than one time for %v, old: %v, new: %v", key, cfg, value)
 				merr = multierror.Append(merr, fmt.Errorf("cluster %s configged for more than one time", key))
@@ -356,14 +380,12 @@ func _parseUnmarshalData(data map[string]interface{}, typeValue *TypeReplicaSpec
 			data, _ := json.Marshal(av)
 			cv := tmpClusterSpec{
 				ClusterReplicaSpec: ClusterReplicaSpec{
-					Type:        typ,
-					ClusterName: UUID(key),
-					Version:     version,
+					Type: typ,
 				},
 			}
 			err := json.Unmarshal(data, &cv)
 			if err != nil || len(cv.XXX) > 0 {
-				err = _parseUnmarshalData(av, typeValue, string(key), typ)
+				err = _parseUnmarshalData(av, typeValue, tmpKey, typ)
 				if err != nil {
 					merr = multierror.Append(merr, err)
 				}
@@ -371,7 +393,7 @@ func _parseUnmarshalData(data map[string]interface{}, typeValue *TypeReplicaSpec
 				typeValue.Add(cv.ClusterReplicaSpec)
 			}
 		default:
-			err := fmt.Errorf("unknown key:value: (%v, %v)", key, av)
+			err := fmt.Errorf("unknown key:value: (%v, %v)", tmpKey, av)
 			glog.Warningf("%v", err)
 			merr = multierror.Append(merr, err)
 		}
@@ -413,24 +435,19 @@ func DiffHostReplicaSpec(a, b *HostReplicaSpec) (lack, residual *HostReplicaSpec
 	}
 
 	a.Range(func(typ ProjectType, typValue *TypeReplicaSpec) bool {
-		dstTypValue, ok := b.Get(typ)
-		if !ok {
-			typValue.Range(func(c UUID, value *ClusterReplicaSpec) bool {
-				residual.AddCluserSpec(*value)
-				return true
-			})
-			return true
-		}
+		dstTypValue, _ := b.Get(typ)
 
 		typValue.Range(func(c UUID, value *ClusterReplicaSpec) bool {
 			dstClusterValue := dstTypValue.Get(c, value.Version)
 			if dstClusterValue == nil {
-				residual.AddCluserSpec(*value)
-				return true
+				tmp := *value
+				tmp.InstancesNum = 0
+				dstClusterValue = &tmp
 			}
 
 			newClusterValue := *value
 			newClusterValue.InstancesNum = value.InstancesNum - dstClusterValue.InstancesNum
+
 			if newClusterValue.InstancesNum > 0 {
 				residual.AddCluserSpec(newClusterValue)
 			} else if newClusterValue.InstancesNum < 0 {
@@ -443,18 +460,17 @@ func DiffHostReplicaSpec(a, b *HostReplicaSpec) (lack, residual *HostReplicaSpec
 	})
 
 	b.Range(func(typ ProjectType, dstTypValue *TypeReplicaSpec) bool {
-		typValue, ok := a.Get(typ)
-		if !ok {
-			dstTypValue.Range(func(c UUID, value *ClusterReplicaSpec) bool {
-				lack.AddCluserSpec(*value)
-				return true
-			})
-			return true
-		}
+		typValue, _ := a.Get(typ)
 
 		dstTypValue.Range(func(c UUID, value *ClusterReplicaSpec) bool {
 			if tmp := typValue.Get(c, value.Version); tmp == nil {
-				lack.AddCluserSpec(*value)
+				if value.InstancesNum > 0 {
+					lack.AddCluserSpec(*value)
+				} else if value.InstancesNum < 0 {
+					v := *value
+					v.InstancesNum = -v.InstancesNum
+					residual.AddCluserSpec(v)
+				}
 			}
 			return true
 		})
@@ -498,14 +514,13 @@ func DiffHostReplicaSpecIgnoreVersion(a, b *HostReplicaSpec) (lack, residual *Ho
 			value = typValue.Get(c, VersionAll)
 			value.ClusterName = stripedCluster
 			if !hasType {
-				residual.AddCluserSpec(*value)
-				return true
+				dstTypValue = &TypeReplicaSpec{}
 			}
 
 			dstClusterValue := dstTypValue.Get(c, VersionAll)
 			if dstClusterValue == nil {
-				residual.AddCluserSpec(*value)
-				return true
+				dstClusterValue = &(*value)
+				dstClusterValue.InstancesNum = 0
 			}
 
 			newClusterValue := *value
@@ -536,12 +551,18 @@ func DiffHostReplicaSpecIgnoreVersion(a, b *HostReplicaSpec) (lack, residual *Ho
 			value.ClusterName = stripedCluster
 
 			if !hasType {
-				lack.AddCluserSpec(*value)
-				return true
+				typValue = &TypeReplicaSpec{}
 			}
 
 			if tmp := typValue.Get(c, VersionAll); tmp == nil {
-				lack.AddCluserSpec(*value)
+				if value.InstancesNum > 0 {
+					lack.AddCluserSpec(*value)
+				} else if value.InstancesNum < 0 {
+					v := *value
+					v.InstancesNum = -v.InstancesNum
+					residual.AddCluserSpec(v)
+				}
+
 			}
 			return true
 		})
@@ -564,5 +585,8 @@ func DiffHostReplicaSpecIgnoreVersion(a, b *HostReplicaSpec) (lack, residual *Ho
 // if raw if "" -> cluster: , version:
 func ParseClusterVersion(raw string) (cluster UUID, version string) {
 	idx := strings.LastIndex(raw, FieldSperator)
+	if idx < 0 {
+		return UUID(raw), ""
+	}
 	return UUID(raw[:idx]), raw[idx+1:]
 }

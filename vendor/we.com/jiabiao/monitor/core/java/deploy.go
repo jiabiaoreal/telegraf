@@ -11,7 +11,7 @@ import (
 
 var (
 	defaultSelector = map[string]string{
-		"java8": "true",
+		"ptjava": "true",
 	}
 )
 
@@ -24,7 +24,7 @@ type DeployConfig struct {
 	DeployGitBranch  string                `json:"deployBranch"`
 	SourceDir        string                `json:"sourceDir"`
 	DeployDir        string                `json:"deployDir"`
-	ResourceRequired *types.DeployResource `json:"resourceRequired"`
+	ResourceRequired *types.DeployResource `json:"resourceRequired,omitempty"`
 
 	Labels map[string]string          `json:"selector,omitempty"`
 	Bins   map[string]BinDeployConfig `json:"bins"`
@@ -118,7 +118,7 @@ func (dc *DeployConfig) ToCommonDeployConfig() map[types.UUID]*types.DeployConfi
 			labels[k] = v
 		}
 
-		clusterStr := fmt.Sprintf("%v:%v:%v:%v:", dc.Project, types.FieldSperator, bn, types.FieldSperator)
+		clusterStr := fmt.Sprintf("%v%v%v", dc.Project, types.FieldSperator, bn)
 		id := types.UUID(clusterStr)
 
 		res := *dc.ResourceRequired

@@ -1,6 +1,7 @@
 package hostinfo
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -12,7 +13,11 @@ import (
 	"sync"
 	"time"
 
+	"we.com/jiabiao/common/runtime"
 	"we.com/jiabiao/monitor/core/types"
+	"we.com/jiabiao/monitor/registry/generic"
+	"we.com/jiabiao/monitor/registry/hosts"
+	"we.com/jiabiao/monitor/registry/watch"
 
 	"github.com/golang/glog"
 	"github.com/hashicorp/go-multierror"
@@ -28,6 +33,7 @@ const (
 
 var hostInfo = HostInfo{
 	Annotations: map[string]string{},
+	Labels:      map[string]string{},
 }
 
 // HostInfo static info of this host, which do not update  frequently
@@ -36,6 +42,7 @@ type HostInfo struct {
 	HostID      types.UUID
 	HostName    string
 	Annotations map[string]string
+	Labels      map[string]string
 	IPs         map[string]string
 	NumOfCPUs   int
 	Memory      uint64
@@ -66,6 +73,18 @@ func GetNumOfCPUs() int {
 // GetSwapSize return size of swap
 func GetSwapSize() uint64 {
 	return hostInfo.SwapSize
+}
+
+// GetLabels return labels of this host
+func GetLabels() map[string]string {
+	ret := map[string]string{}
+	hostInfo.lock.RLock()
+	defer hostInfo.lock.RUnlock()
+	for k, v := range hostInfo.Labels {
+		ret[k] = v
+	}
+
+	return ret
 }
 
 // GetAnnotations get annotations of this host
@@ -522,6 +541,7 @@ func copyHostInfo(dst, src *HostInfo) {
 
 func updateHostInfo() {
 	ticker := time.NewTicker(2 * time.Minute)
+	go watchHostConfig()
 	for {
 		select {
 		case <-ticker.C:
@@ -534,4 +554,50 @@ func updateHostInfo() {
 			copyHostInfo(&hostInfo, hi)
 		}
 	}
+}
+
+func watchHostConfig() {
+	s := time.Now().Unix()
+	for {
+		if generic.IsInitialized() {
+			break
+		}
+		elp := time.Now().Unix() - s
+		if elp > 0 && elp%30 == 0 {
+			glog.Warningf("%v seconds passed, still not initialized ", elp)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	for {
+		func() {
+			defer runtime.HandleCrash()
+			r := hosts.NewRegistry(GetEnv())
+			ctx := context.Background()
+			if err := r.WatchConfig(ctx, GetHostID(), handleHostconfigEvent); err != nil {
+				glog.Errorf("watch host config: %v", err)
+			}
+		}()
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func handleHostconfigEvent(event watch.Event) error {
+	hc, ok := event.Object.(*types.HostConfig)
+	if !ok {
+		return fmt.Errorf("expect event dat of type *types.HostConfig, got: %v", event.Object)
+	}
+
+	switch event.Type {
+	case watch.Added, watch.Modified:
+		// update tags only
+		labels := hc.Labels
+		hostInfo.lock.Lock()
+		defer hostInfo.lock.Unlock()
+		hostInfo.Labels = labels
+
+	case watch.Deleted:
+		glog.Warningf("host config deleted: %v", hc)
+	}
+
+	return nil
 }

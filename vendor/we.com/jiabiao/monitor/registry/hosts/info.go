@@ -27,7 +27,8 @@ func NewCachedRegistery(env types.ENV) *CachedRegistry {
 		stopC:       make(chan struct{}),
 	}
 
-	go ret.watchHostInfo()
+	ctx := context.Background()
+	go ret.watchHostInfo(ctx)
 
 	return ret
 }
@@ -43,7 +44,7 @@ type CachedRegistry struct {
 	stopC chan struct{}
 }
 
-func (r *CachedRegistry) watchHostInfo() error {
+func (r *CachedRegistry) watchHostInfo(ctx context.Context) error {
 	store, err := getStore()
 	if err != nil {
 		glog.Errorf("getStoreInstance error: %s", err)
@@ -67,10 +68,11 @@ func (r *CachedRegistry) watchHostInfo() error {
 		case <-r.stopC:
 			watcher.Stop()
 			return nil
+		case <-ctx.Done():
+			watcher.Stop()
+			return nil
 		}
-
 	}
-
 }
 
 func (r *CachedRegistry) handelEvent(event watch.Event) error {

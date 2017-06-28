@@ -8,6 +8,11 @@ import (
 	"strings"
 )
 
+var (
+	// CPUUnit cpu hz
+	CPUUnit = uint64(2.6 * 1000 * 1000 * 1000)
+)
+
 // DeployConfig config  how an project should be deployed
 type DeployConfig struct {
 	Type          ProjectType `json:"projectType"`
@@ -236,7 +241,6 @@ func ToHostReplicaSpec(ptc map[ProjectType]map[UUID]DeployConfig) *HostReplicaSp
 		for _, cs := range tcMap {
 			ret.AddCluserSpec(*cs.ToClusterSpec())
 		}
-
 	}
 
 	return &ret

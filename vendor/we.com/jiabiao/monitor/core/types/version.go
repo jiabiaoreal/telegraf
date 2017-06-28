@@ -19,15 +19,15 @@ func (vi *VersionInfo) MarshalJSON() ([]byte, error) {
 	type t struct {
 		Type     ProjectType `json:"type,omitempty"`
 		Cluster  UUID        `json:"cluster,omitempty"`  // clusterName without version
-		Backup   string      `json:"backup,omitempty"`   // backup version number
-		Expected string      `json:"expected,omitempty"` // expected version number
+		Versions []string    `json:"versions,omitempty"` // slice of versions, first is expected, second is backup
 	}
+
+	versions := []string{vi.expected, vi.backup}
 
 	tmp := t{
 		Type:     vi.Type,
 		Cluster:  vi.Cluster,
-		Backup:   vi.backup,
-		Expected: vi.expected,
+		Versions: versions,
 	}
 
 	return json.Marshal(tmp)
@@ -39,8 +39,7 @@ func (vi *VersionInfo) UnmarshalJSON(data []byte) error {
 	type t struct {
 		Type     ProjectType `json:"type,omitempty"`
 		Cluster  UUID        `json:"cluster,omitempty"`  // clusterName without version
-		Backup   string      `json:"backup,omitempty"`   // backup version number
-		Expected string      `json:"expected,omitempty"` // expected version number
+		Versions []string    `json:"versions,omitempty"` // slice of versions, first is expected, second is backup
 	}
 	tmp := &t{}
 
@@ -48,10 +47,15 @@ func (vi *VersionInfo) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
+	// ensure len(tmp.Versions) ge 2
+	for len(tmp.Versions) < 2 {
+		tmp.Versions = append(tmp.Versions, "")
+	}
+
 	vi.Type = tmp.Type
 	vi.Cluster = tmp.Cluster
-	vi.backup = tmp.Backup
-	vi.expected = tmp.Expected
+	vi.expected = tmp.Versions[0]
+	vi.backup = tmp.Versions[1]
 
 	return nil
 }
@@ -60,11 +64,8 @@ func (vi *VersionInfo) UnmarshalJSON(data []byte) error {
 // if version already saw or is None, just return
 // if version is lager the all known versions, update latest
 func (vi *VersionInfo) AddVersion(version string) {
-	if version == VersionNone {
-		return
-	}
-
-	vi.backup = version
+	vi.backup = vi.expected
+	vi.expected = version
 }
 
 // SetExpected set expect version to exp,

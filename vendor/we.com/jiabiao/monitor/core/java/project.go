@@ -28,13 +28,13 @@ const (
 
 // ProjectInterface a single interface confi
 type ProjectInterface struct {
-	Name        string            `json:"name"`
-	Desc        string            `json:"desc"`
-	Data        string            `json:"data"`
-	Header      map[string]string `json:"header"`
+	Name        string            `json:"name,omitempty"`
+	Desc        string            `json:"desc,omitempty"`
+	Data        string            `json:"data,omitempty"`
+	Header      map[string]string `json:"header,omitempty"`
 	Env         string            `json:"env,omitempty"`
 	Matches     map[string]string `json:"matches,omitempty"`
-	DontMatches map[string]string `json:"dont_matches，omitempty"`
+	DontMatches map[string]string `json:"dontMatches,omitempty"`
 	EnvMap      map[types.ENV]int `json:"-"`
 }
 
@@ -58,23 +58,23 @@ func (pi ProjectInterface) Validate() error {
 // BinInfo project bins info
 type BinInfo struct {
 	Project string            `json:"project,omitempty"`
-	Bin     string            `json:"name"`
-	Type    types.ServiceType `json:"type"`
+	Bin     string            `json:"name,omitempty"`
+	Type    types.ServiceType `json:"type,omitempty"`
 	Env     string            `json:"env,omitempty"`
-	ZKPath  string            `json:"zkPath"`
+	ZKPath  string            `json:"zkPath,omitempty"`
 	EnvMap  map[types.ENV]int `json:"-"`
 }
 
 // ProjectInfo  Project info
 type ProjectInfo struct {
-	APIVersion string                       `json:"apiVersion"`
+	APIVersion string                       `json:"apiVersion,omitempty"`
 	Name       string                       `json:"project,omitempty"`
 	Desc       string                       `json:"desc,omitempty"`
-	Owner      string                       `json:"owner"`
-	Labels     map[string]string            `json:"labels"`
+	Owner      string                       `json:"owner,omitempty"`
+	Labels     map[string]string            `json:"labels,omitempty"`
 	ZKPath     string                       `json:"zkPath,omitempty"`
-	Bins       map[string]*BinInfo          `json:"bins"`
-	Interfaces map[string]*ProjectInterface `json:"interfaces"`
+	Bins       map[string]*BinInfo          `json:"bins,omitempty"`
+	Interfaces map[string]*ProjectInterface `json:"interfaces,omitempty"`
 }
 
 // GetDialInterfaces return dial interface of an env

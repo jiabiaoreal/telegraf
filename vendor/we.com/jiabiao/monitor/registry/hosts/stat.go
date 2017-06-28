@@ -9,7 +9,7 @@ import (
 	"we.com/jiabiao/monitor/core/types"
 )
 
-// NewRegistry  returns a registry
+// NewRegistry  returns a registry, should call Stop when not used
 func NewRegistry(env types.ENV) *Registry {
 	return &Registry{
 		env:   env,
@@ -103,8 +103,8 @@ func (r *Registry) GetHostInfoOfHostID(hostID types.UUID) (*types.HostInfo, erro
 	return &ret, nil
 }
 
-// SaveHostInfoOf  save or update   hostinfo of hostInfo.HostID, or err
-func (r *Registry) SaveHostInfoOf(hi *types.HostInfo) error {
+// SaveHostInfo  save or update   hostinfo of hostInfo.HostID, or err
+func (r *Registry) SaveHostInfo(hi *types.HostInfo) error {
 	store, err := getStore()
 	if err != nil {
 		return err
