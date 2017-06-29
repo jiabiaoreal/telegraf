@@ -52,6 +52,7 @@ func (r *Registry) WatchConfig(ctx context.Context, hostID types.UUID,
 	}
 
 	key := etcd.GetHostConfigPath(r.env, hostID)
+	glog.V(5).Infof("start to watch node: %v", key)
 	watcher, err := store.Watch(context.Background(), key, generic.Everything, false,
 		reflect.TypeOf(types.HostConfig{}))
 	if err != nil {
