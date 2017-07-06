@@ -330,7 +330,9 @@ func main() {
 	// test config file
 	// parse etcd, ctrlscript file path
 	t := config.NewConfig()
-	t.LoadConfig(*fConfig)
+	if err := t.LoadConfig(*fConfig); err != nil {
+		glog.Fatalf("load config: %v", err)
+	}
 
 	// init etcd config
 	cfgfile := config.GetEtcdConfigFile()
