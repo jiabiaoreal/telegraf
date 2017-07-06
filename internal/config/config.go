@@ -15,8 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"we.com/jiabiao/common/yaml"
-
 	"github.com/golang/glog"
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/internal"
@@ -43,63 +41,19 @@ var (
 	// envVarRe is a regex to find environment variables in the config file
 	envVarRe = regexp.MustCompile(`\$\w+`)
 
-	// defaultGlobalConfig default global config
-	defaultGlobalConfig = globalConfig{
-		EtcdConfigPath: "/etc/telegraf/etcd.yml",
-		SendAlert:      false,
-		AlertAPI:       "http://alarm.we.com/api/v1/alerts",
-		CtrlScript:     "/etc/telegraf/scripts/ctrl.sh", //  ctr.sh  java|nginx|es|mq  start|stop|restart  [[[[project] [bin]] [version]] [pid]]
-	}
-
-	currentglobalConfig = &defaultGlobalConfig
+	etcdConfigPath = "/etc/telegraf/etcd.yml"
+	//  ctr.sh  java|nginx|es|mq  start|stop|restart  [[[[project] [bin]] [version]] [pid]]
+	ctrlScript = "/etc/telegraf/scripts/ctrl.sh"
 )
-
-// globalConfig global configs
-type globalConfig struct {
-	EtcdConfigPath string `json:"etcdConfigFile"`
-	SendAlert      bool   `json:"sendAlert"`
-	AlertAPI       string `json:"alertAPI"`
-	CtrlScript     string `json:"ctrlScript"`
-}
-
-// LoadGlobalConfig from file
-func LoadGlobalConfig(fpath string) error {
-	contents, err := ioutil.ReadFile(fpath)
-	if err != nil {
-		return err
-	}
-	// ugh windows why
-	contents = trimBOM(contents)
-	reader := bytes.NewReader(contents)
-	cfg := &globalConfig{}
-
-	coder := yaml.NewYAMLOrJSONDecoder(reader, 4)
-	if err = coder.Decode(cfg); err != nil {
-		return err
-	}
-
-	currentglobalConfig = cfg
-	return nil
-}
-
-// SendAlert or not
-func SendAlert() bool {
-	return currentglobalConfig.SendAlert
-}
 
 // GetEtcdConfigFile returns file path of etcd config
 func GetEtcdConfigFile() string {
-	return currentglobalConfig.EtcdConfigPath
-}
-
-// GetAlertAPI returns alert api endpoint
-func GetAlertAPI() string {
-	return currentglobalConfig.AlertAPI
+	return etcdConfigPath
 }
 
 // GetCtrlScriptPath returns control script path
 func GetCtrlScriptPath() string {
-	return currentglobalConfig.CtrlScript
+	return ctrlScript
 }
 
 // Config specifies the URL/user/password for the database that telegraf
@@ -138,6 +92,12 @@ func NewConfig() *Config {
 }
 
 type AgentConfig struct {
+	// EtcdCfg  etcdconfig file path
+	EtcdCfg string
+
+	// CtrlScript control script path
+	CtrlScript string
+
 	// Interval at which to gather information
 	Interval internal.Duration
 
@@ -259,6 +219,12 @@ var header = `# Telegraf Configuration
 
 # Configuration for telegraf agent
 [agent]
+  ## etcd_cfg  etcdconfig file path
+  etcd_cfg = "/etc/telegraf/etcd.yml"
+
+  ## ctrl_script control script path
+  ctrl_script = "/etc/telegraf/scripts/ctrl.sh"
+
   ## Default data collection interval for all inputs
   interval = "10s"
   ## Rounds collection interval to 'interval'
@@ -739,6 +705,10 @@ func (c *Config) LoadConfig(path string) error {
 	if len(c.Processors) > 1 {
 		sort.Sort(c.Processors)
 	}
+
+	ctrlScript = c.Agent.CtrlScript
+	etcdConfigPath = c.Agent.EtcdCfg
+
 	return nil
 }
 

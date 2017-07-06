@@ -327,11 +327,10 @@ func main() {
 		return
 	}
 
-	cmd := *fSignal
-	if cmd != "" {
-		handCMD(cmd)
-		return
-	}
+	// test config file
+	// parse etcd, ctrlscript file path
+	t := config.NewConfig()
+	t.LoadConfig(*fConfig)
 
 	// init etcd config
 	cfgfile := config.GetEtcdConfigFile()
@@ -341,6 +340,12 @@ func main() {
 		glog.Fatalf("%v", err)
 	}
 	generic.SetEtcdConfig(cfg)
+
+	cmd := *fSignal
+	if cmd != "" {
+		handCMD(cmd)
+		return
+	}
 
 	glog.V(10).Infof("args: %v", args)
 
