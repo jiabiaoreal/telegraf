@@ -60,6 +60,28 @@ func TestFromPSError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func BenchmarkFromProcFiles(b *testing.B) {
+	if runtime.GOOS != "linux" {
+		b.Skip("This test only runs on linux")
+	}
+	tester := tester{}
+	processes := &Processes{
+		readProcFile: tester.testProcFile,
+		forceProc:    true,
+	}
+
+	var acc testutil.Accumulator
+	err := processes.Gather(&acc)
+	require.NoError(b, err)
+
+	fields := getEmptyFields()
+	fields["sleeping"] = tester.calls
+	fields["total_threads"] = tester.calls * 2
+	fields["total"] = tester.calls
+
+	acc.AssertContainsTaggedFields(b, "processes", fields, map[string]string{})
+}
+
 func TestFromProcFiles(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("This test only runs on linux")
@@ -68,6 +90,52 @@ func TestFromProcFiles(t *testing.T) {
 	processes := &Processes{
 		readProcFile: tester.testProcFile,
 		forceProc:    true,
+	}
+
+	var acc testutil.Accumulator
+	err := processes.Gather(&acc)
+	require.NoError(t, err)
+
+	fields := getEmptyFields()
+	fields["sleeping"] = tester.calls
+	fields["total_threads"] = tester.calls * 2
+	fields["total"] = tester.calls
+
+	acc.AssertContainsTaggedFields(t, "processes", fields, map[string]string{})
+}
+
+func BenchmarkFromProcFilesWalk(b *testing.B) {
+	if runtime.GOOS != "linux" {
+		b.Skip("This test only runs on linux")
+	}
+	tester := tester{}
+	processes := &Processes{
+		readProcFile: tester.testProcFile,
+		forceProc:    true,
+		forceWalk:    true,
+	}
+
+	var acc testutil.Accumulator
+	err := processes.Gather(&acc)
+	require.NoError(t, err)
+
+	fields := getEmptyFields()
+	fields["sleeping"] = tester.calls
+	fields["total_threads"] = tester.calls * 2
+	fields["total"] = tester.calls
+
+	acc.AssertContainsTaggedFields(b, "processes", fields, map[string]string{})
+}
+
+func TestFromProcFilesWalk(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("This test only runs on linux")
+	}
+	tester := tester{}
+	processes := &Processes{
+		readProcFile: tester.testProcFile,
+		forceProc:    true,
+		forceWalk:    true,
 	}
 
 	var acc testutil.Accumulator

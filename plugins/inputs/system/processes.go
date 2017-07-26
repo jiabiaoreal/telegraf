@@ -6,13 +6,14 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"github.com/golang/glog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"syscall"
+
+	"github.com/golang/glog"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
@@ -25,6 +26,7 @@ type Processes struct {
 
 	forcePS   bool
 	forceProc bool
+	forceWalk bool
 }
 
 func (p *Processes) Description() string {
@@ -54,7 +56,7 @@ func (p *Processes) Gather(acc telegraf.Accumulator) error {
 			return err
 		}
 	} else {
-		if err := p.gatherFromProc(fields); err != nil {
+		if err := p.gatherFromProcWalk(fields); err != nil {
 			return err
 		}
 	}
@@ -139,6 +141,93 @@ func (p *Processes) gatherFromPS(fields map[string]interface{}) error {
 	return nil
 }
 
+func (p *Processes) gatherFromProcWalk(fields map[string]interface{}) error {
+
+	proc := GetHostProc()
+	// here only walk direct subdir
+	filepath.Walk(proc, func(path string, info os.FileInfo, err error) error {
+		glog.Errorf("walk: %v", path)
+		if err != nil {
+			// We should continue processing other directories/files
+			return filepath.SkipDir
+		}
+
+		base := filepath.Base(path)
+		// Traverse only the directories we are interested in
+		if info.IsDir() {
+			if path != proc {
+				return nil
+			}
+			// If the directory is not a number (i.e. not a PID), skip it
+			if _, err := strconv.Atoi(base); err != nil {
+				return filepath.SkipDir
+			}
+		}
+
+		file := filepath.Join(path, "stat")
+
+		p.parseStatFile(file, fields)
+
+		return filepath.SkipDir
+	})
+
+	return nil
+}
+
+func (p *Processes) parseStatFile(filename string, fields map[string]interface{}) error {
+	if _, err := os.Stat(filename); err != nil {
+		return nil
+	}
+
+	data, err := p.readProcFile(filename)
+	if err != nil {
+		return err
+	}
+	if data == nil {
+		return nil
+	}
+
+	// Parse out data after (<cmd name>)
+	i := bytes.LastIndex(data, []byte(")"))
+	if i == -1 {
+		return nil
+	}
+	data = data[i+2:]
+
+	stats := bytes.Fields(data)
+	if len(stats) < 3 {
+		return fmt.Errorf("Something is terribly wrong with %s", filename)
+	}
+	switch stats[0][0] {
+	case 'R':
+		fields["running"] = fields["running"].(int64) + int64(1)
+	case 'S':
+		fields["sleeping"] = fields["sleeping"].(int64) + int64(1)
+	case 'D':
+		fields["blocked"] = fields["blocked"].(int64) + int64(1)
+	case 'Z':
+		fields["zombies"] = fields["zombies"].(int64) + int64(1)
+	case 'X':
+		fields["dead"] = fields["dead"].(int64) + int64(1)
+	case 'T', 't':
+		fields["stopped"] = fields["stopped"].(int64) + int64(1)
+	case 'W':
+		fields["paging"] = fields["paging"].(int64) + int64(1)
+	default:
+		glog.Infof("processes: Unknown state [ %s ] in file %s",
+			string(stats[0][0]), filename)
+	}
+	fields["total"] = fields["total"].(int64) + int64(1)
+
+	threads, err := strconv.Atoi(string(stats[17]))
+	if err != nil {
+		glog.Infof("processes: Error parsing thread count: %s", err)
+		return err
+	}
+	fields["total_threads"] = fields["total_threads"].(int64) + int64(threads)
+	return nil
+}
+
 // get process states from /proc/(pid)/stat files
 func (p *Processes) gatherFromProc(fields map[string]interface{}) error {
 	filenames, err := filepath.Glob(GetHostProc() + "/[0-9]*/stat")
@@ -148,53 +237,7 @@ func (p *Processes) gatherFromProc(fields map[string]interface{}) error {
 	}
 
 	for _, filename := range filenames {
-		_, err := os.Stat(filename)
-		data, err := p.readProcFile(filename)
-		if err != nil {
-			return err
-		}
-		if data == nil {
-			continue
-		}
-
-		// Parse out data after (<cmd name>)
-		i := bytes.LastIndex(data, []byte(")"))
-		if i == -1 {
-			continue
-		}
-		data = data[i+2:]
-
-		stats := bytes.Fields(data)
-		if len(stats) < 3 {
-			return fmt.Errorf("Something is terribly wrong with %s", filename)
-		}
-		switch stats[0][0] {
-		case 'R':
-			fields["running"] = fields["running"].(int64) + int64(1)
-		case 'S':
-			fields["sleeping"] = fields["sleeping"].(int64) + int64(1)
-		case 'D':
-			fields["blocked"] = fields["blocked"].(int64) + int64(1)
-		case 'Z':
-			fields["zombies"] = fields["zombies"].(int64) + int64(1)
-		case 'X':
-			fields["dead"] = fields["dead"].(int64) + int64(1)
-		case 'T', 't':
-			fields["stopped"] = fields["stopped"].(int64) + int64(1)
-		case 'W':
-			fields["paging"] = fields["paging"].(int64) + int64(1)
-		default:
-			glog.Infof("processes: Unknown state [ %s ] in file %s",
-				string(stats[0][0]), filename)
-		}
-		fields["total"] = fields["total"].(int64) + int64(1)
-
-		threads, err := strconv.Atoi(string(stats[17]))
-		if err != nil {
-			glog.Infof("processes: Error parsing thread count: %s", err)
-			continue
-		}
-		fields["total_threads"] = fields["total_threads"].(int64) + int64(threads)
+		p.parseStatFile(filename, fields)
 	}
 	return nil
 }
