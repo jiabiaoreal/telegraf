@@ -146,7 +146,6 @@ func (p *Processes) gatherFromProcWalk(fields map[string]interface{}) error {
 	proc := GetHostProc()
 	// here only walk direct subdir
 	filepath.Walk(proc, func(path string, info os.FileInfo, err error) error {
-		glog.Errorf("walk: %v", path)
 		if err != nil {
 			// We should continue processing other directories/files
 			return filepath.SkipDir

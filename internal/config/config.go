@@ -41,19 +41,31 @@ var (
 	// envVarRe is a regex to find environment variables in the config file
 	envVarRe = regexp.MustCompile(`\$\w+`)
 
-	etcdConfigPath = "/etc/telegraf/etcd.yml"
+	etcdConfigPath = ""
 	//  ctr.sh  java|nginx|es|mq  start|stop|restart  [[[[project] [bin]] [version]] [pid]]
-	ctrlScript = "/etc/telegraf/scripts/ctrl.sh"
+	ctrlScript = ""
+)
+
+const (
+	defaultEtcdConfigPath = "/etc/telegraf/etcd.yml"
+	defaultCtrlScript     = "/etc/telegraf/scripts/ctrl.sh"
 )
 
 // GetEtcdConfigFile returns file path of etcd config
 func GetEtcdConfigFile() string {
-	return etcdConfigPath
+	if etcdConfigPath != "" {
+		return etcdConfigPath
+	}
+
+	return defaultEtcdConfigPath
 }
 
 // GetCtrlScriptPath returns control script path
 func GetCtrlScriptPath() string {
-	return ctrlScript
+	if ctrlScript != "" {
+		return ctrlScript
+	}
+	return defaultCtrlScript
 }
 
 // Config specifies the URL/user/password for the database that telegraf
