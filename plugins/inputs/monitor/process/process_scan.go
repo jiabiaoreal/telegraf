@@ -102,34 +102,42 @@ func GetAllPidsOfType(typ string) ([]int, error) {
 }
 
 func getPids(re *regexp.Regexp, matchBinOnly bool) []int {
+	proc := "/proc"
+	skip := filepath.SkipDir
+
 	pids := []int{}
-	filepath.Walk("/proc", func(path string, info os.FileInfo, err error) error {
+	filepath.Walk(proc, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			// We should continue processing other directories/files
+			return skip
+		}
+		if path == proc {
 			return nil
 		}
+
 		base := filepath.Base(path)
+		var pid int
 		// Traverse only the directories we are interested in
-		if info.IsDir() && path != "/proc" {
+		if info.IsDir() {
 			// If the directory is not a number (i.e. not a PID), skip it
-			if _, err := strconv.Atoi(base); err != nil {
-				return filepath.SkipDir
+			if pid, err = strconv.Atoi(base); err != nil {
+				return skip
 			}
 		}
-		if base != "cmdline" {
-			return nil
-		}
-		cmdline, err := ioutil.ReadFile(path)
+
+		file := filepath.Join(path, "cmdline")
+
+		cmdline, err := ioutil.ReadFile(file)
 		if err != nil {
 			glog.V(4).Infof("Error reading file %s: %+v", path, err)
-			return nil
+			return skip
 		}
 		exe := []string{}
 		if matchBinOnly {
 			// The bytes we read have '\0' as a separator for the command line
 			parts := bytes.SplitN(cmdline, []byte{0}, 2)
 			if len(parts) == 0 {
-				return nil
+				return skip
 			}
 			// Split the command line itself we are interested in just the first part
 			exe = strings.FieldsFunc(string(parts[0]), func(c rune) bool {
@@ -139,16 +147,13 @@ func getPids(re *regexp.Regexp, matchBinOnly bool) []int {
 			exe = []string{string(cmdline)}
 		}
 		if len(exe) == 0 {
-			return nil
+			return skip
 		}
 		// Check if the name of the executable is what we are looking for
 		if re.MatchString(exe[0]) {
-			dirname := filepath.Base(filepath.Dir(path))
-			// Grab the PID from the directory path
-			pid, _ := strconv.Atoi(dirname)
 			pids = append(pids, pid)
 		}
-		return nil
+		return skip
 	})
 	return pids
 }

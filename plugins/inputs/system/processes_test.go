@@ -73,13 +73,6 @@ func BenchmarkFromProcFiles(b *testing.B) {
 	var acc testutil.Accumulator
 	err := processes.Gather(&acc)
 	require.NoError(b, err)
-
-	fields := getEmptyFields()
-	fields["sleeping"] = tester.calls
-	fields["total_threads"] = tester.calls * 2
-	fields["total"] = tester.calls
-
-	acc.AssertContainsTaggedFields(b, "processes", fields, map[string]string{})
 }
 
 func TestFromProcFiles(t *testing.T) {
@@ -117,14 +110,7 @@ func BenchmarkFromProcFilesWalk(b *testing.B) {
 
 	var acc testutil.Accumulator
 	err := processes.Gather(&acc)
-	require.NoError(t, err)
-
-	fields := getEmptyFields()
-	fields["sleeping"] = tester.calls
-	fields["total_threads"] = tester.calls * 2
-	fields["total"] = tester.calls
-
-	acc.AssertContainsTaggedFields(b, "processes", fields, map[string]string{})
+	require.NoError(b, err)
 }
 
 func TestFromProcFilesWalk(t *testing.T) {

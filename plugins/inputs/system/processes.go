@@ -19,10 +19,16 @@ import (
 	"github.com/influxdata/telegraf/plugins/inputs"
 )
 
+var (
+	cachedData map[string]interface{}
+)
+
+type procReader func(filename string) ([]byte, error)
+
 type Processes struct {
 	execPS       func() ([]byte, error)
 	getHostProc  func() string
-	readProcFile func(filename string) ([]byte, error)
+	readProcFile procReader
 
 	forcePS   bool
 	forceProc bool
@@ -51,16 +57,17 @@ func (p *Processes) Gather(acc telegraf.Accumulator) error {
 	}
 
 	// Gather stats from 'ps' or procfs
+	gatherFunc := p.gatherFromProc
 	if usePS {
-		if err := p.gatherFromPS(fields); err != nil {
-			return err
-		}
-	} else {
-		if err := p.gatherFromProcWalk(fields); err != nil {
-			return err
-		}
+		gatherFunc = p.gatherFromPS
 	}
 
+	if err := gatherFunc(fields); err != nil {
+		cachedData = nil
+		return err
+	}
+
+	cachedData = fields
 	acc.AddGauge("processes", fields, nil)
 	return nil
 }
@@ -141,8 +148,11 @@ func (p *Processes) gatherFromPS(fields map[string]interface{}) error {
 	return nil
 }
 
-func (p *Processes) gatherFromProcWalk(fields map[string]interface{}) error {
+func (p *Processes) gatherFromProc(fields map[string]interface{}) error {
+	return gatherFromProcWalk(fields, p.readProcFile)
+}
 
+func gatherFromProcWalk(fields map[string]interface{}, readProcFile procReader) error {
 	proc := GetHostProc()
 	// here only walk direct subdir
 	filepath.Walk(proc, func(path string, info os.FileInfo, err error) error {
@@ -154,7 +164,7 @@ func (p *Processes) gatherFromProcWalk(fields map[string]interface{}) error {
 		base := filepath.Base(path)
 		// Traverse only the directories we are interested in
 		if info.IsDir() {
-			if path != proc {
+			if path == proc {
 				return nil
 			}
 			// If the directory is not a number (i.e. not a PID), skip it
@@ -165,7 +175,7 @@ func (p *Processes) gatherFromProcWalk(fields map[string]interface{}) error {
 
 		file := filepath.Join(path, "stat")
 
-		p.parseStatFile(file, fields)
+		parseStatFile(file, fields, readProcFile)
 
 		return filepath.SkipDir
 	})
@@ -173,12 +183,12 @@ func (p *Processes) gatherFromProcWalk(fields map[string]interface{}) error {
 	return nil
 }
 
-func (p *Processes) parseStatFile(filename string, fields map[string]interface{}) error {
+func parseStatFile(filename string, fields map[string]interface{}, readprocFile procReader) error {
 	if _, err := os.Stat(filename); err != nil {
 		return nil
 	}
 
-	data, err := p.readProcFile(filename)
+	data, err := readProcFile(filename)
 	if err != nil {
 		return err
 	}
@@ -228,7 +238,7 @@ func (p *Processes) parseStatFile(filename string, fields map[string]interface{}
 }
 
 // get process states from /proc/(pid)/stat files
-func (p *Processes) gatherFromProc(fields map[string]interface{}) error {
+func gatherFromProcGlob(fields map[string]interface{}, readProcFile procReader) error {
 	filenames, err := filepath.Glob(GetHostProc() + "/[0-9]*/stat")
 
 	if err != nil {
@@ -236,7 +246,7 @@ func (p *Processes) gatherFromProc(fields map[string]interface{}) error {
 	}
 
 	for _, filename := range filenames {
-		p.parseStatFile(filename, fields)
+		parseStatFile(filename, fields, readProcFile)
 	}
 	return nil
 }

@@ -1,8 +1,11 @@
-package monitor
+// +build !windows
+
+package system
 
 import (
+	"bufio"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,7 +26,6 @@ import (
 	"github.com/shirou/gopsutil/load"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/shirou/gopsutil/net"
-	p "github.com/shirou/gopsutil/process"
 )
 
 type hostInfo struct {
@@ -106,20 +108,26 @@ func (hi *hostInfo) Gather(acc telegraf.Accumulator) error {
 
 func numOfThreads(pid int32) int {
 	statPath := fmt.Sprintf("/proc/%v/status", pid)
-	contents, err := ioutil.ReadFile(statPath)
+
+	file, err := os.Open(statPath)
 	if err != nil {
 		glog.V(10).Infof("get num of threads of process %v, err: %v", pid, err)
 		return 0
 	}
 
-	lines := strings.Split(string(contents), "\n")
-	for _, line := range lines {
+	reader := bufio.NewReader(file)
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			break
+		}
 		if !strings.HasPrefix(line, "Threads:") {
 			continue
 		}
 		tabParts := strings.SplitN(line, "\t", 2)
 		if len(tabParts) < 2 {
-			continue
+			break
 		}
 		value := tabParts[1]
 		switch strings.TrimRight(tabParts[0], ":") {
@@ -132,17 +140,29 @@ func numOfThreads(pid int32) int {
 			return int(v)
 		}
 	}
-
 	return 0
 }
 
 func numOfProcessAndThreads() (int, int) {
-	pids, _ := p.Pids()
-	threads := 0
-	for _, p := range pids {
-		threads += numOfThreads(p)
+	var numP int64
+	var numT int64
+	var fields map[string]interface{}
+	if cachedData != nil {
+		fields = cachedData
+	} else {
+		fields = getEmptyFields()
+		gatherFromProcWalk(fields, readProcFile)
 	}
-	return len(pids), threads
+	p, ok := fields["total"]
+	if ok {
+		numP, _ = p.(int64)
+	}
+	t, ok := fields["total_threads"]
+	if ok {
+		numT, _ = t.(int64)
+	}
+
+	return int(numP), int(numT)
 }
 
 func (hi *hostInfo) diskIO() error {

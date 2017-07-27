@@ -1,3 +1,5 @@
+// +build !windows
+
 package system
 
 import (
@@ -5,9 +7,10 @@ import (
 	"io/ioutil"
 	"strconv"
 
+	"path"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
-	"path"
 )
 
 // https://www.kernel.org/doc/Documentation/sysctl/fs.txt
