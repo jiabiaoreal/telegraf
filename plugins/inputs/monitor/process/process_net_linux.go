@@ -41,10 +41,9 @@ func ListenPortsOfPid(pid int) ([]types.Addr, error) {
 	var ports []types.Addr
 	walkFunc := func(path string, fd os.FileInfo, err error) error {
 		if err != nil {
-			glog.Infof("walk %v: %v", path, err)
+			// We should continue processing other directories/files
 			return nil
 		}
-
 		if strings.HasSuffix(path, "fd") {
 			return nil
 		}

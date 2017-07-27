@@ -102,6 +102,7 @@ func NewHostReplicaSpecManager() (*HostReplicaSpecManager, error) {
 // UpdateHostInfo update hostinfo to etcd
 func (hrsm *HostReplicaSpecManager) UpdateHostInfo() error {
 	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
@@ -391,6 +392,7 @@ func (hrsm *HostReplicaSpecManager) reportMetrics(ps []types.ProcessInfor) error
 // wait at mostly  timeout, for actualHostReplicaSpec update, if updated return true, else false
 func (hrsm *HostReplicaSpecManager) waitActualSpecUpdateWithTimeout(timeout time.Duration) bool {
 	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
 	start := time.Now()
 
 	for {
@@ -451,6 +453,7 @@ func (hrsm *HostReplicaSpecManager) waitActualSpecUpdateWithTimeout(timeout time
 // HandleDiffReplicaSpec  make sure actual HostReplicaSpec meet expected hostReplicaSpec
 func (hrsm *HostReplicaSpecManager) HandleDiffReplicaSpec() error {
 	timer := time.NewTicker(2 * time.Second)
+	defer timer.Stop()
 
 	logoutput := output.NewLogOutputer(0)
 	waitcount := 0
@@ -522,6 +525,7 @@ func (hrsm *HostReplicaSpecManager) HandleDiffReplicaSpec() error {
 							spec := &core.ClusterReplicaSpec{
 								Type:         core.ProjectType(typ),
 								ClusterName:  cluster,
+								Version:      cspec.Version,
 								InstancesNum: 1,
 							}
 							glog.Infof("start new %v instance %v", typ, cluster)

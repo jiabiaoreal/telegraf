@@ -183,8 +183,8 @@ func (p *StateMonitor) StopProcess(ps types.ProcessInfor, o io.Writer) error {
 		glog.Errorf("%v", err)
 		return err
 	}
-	cmd := fmt.Sprintf("%s java %s %s %s %s %v", config.GetCtrlScriptPath(),
-		cmdType, project, bin, ins.Version, psinfo.proc.Pid)
+	cmd := fmt.Sprintf("%s java %s %s %s %v %v", config.GetCtrlScriptPath(),
+		cmdType, project, bin, psinfo.proc.Pid, ins.Version)
 	labels := map[string]string{
 		"action":  cmdType,
 		"ptype":   cmdType,
@@ -395,6 +395,7 @@ func updateInstanceInfo(pid int,
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			defer cancel()
 			tick := time.NewTicker(2 * time.Second)
+			defer tick.Stop()
 			for {
 				select {
 				case <-tick.C:

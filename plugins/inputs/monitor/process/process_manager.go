@@ -98,6 +98,7 @@ func NewStartStopWorker(acc telegraf.Accumulator) *StartStopWorker {
 
 func (ssw *StartStopWorker) cleanHistory() {
 	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case now := <-ticker.C:

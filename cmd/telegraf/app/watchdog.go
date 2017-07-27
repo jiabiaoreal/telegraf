@@ -162,7 +162,9 @@ func (w *Watchdog) Start() {
 	} else {
 		// wait previous  watchdog to exit
 		tick := time.NewTicker(100 * time.Millisecond)
+		defer tick.Stop()
 		timer := time.NewTimer(5 * time.Second)
+		defer timer.Stop()
 		oldProcs := []*os.Process{}
 		for _, pid := range otherPids {
 			proc, _ := os.FindProcess(pid)

@@ -219,8 +219,16 @@ func (p *Process) NumCtxSwitches() (*NumCtxSwitchesStat, error) {
 
 // NumFDs returns the number of File Descriptors used by the process.
 func (p *Process) NumFDs() (int32, error) {
-	numFds, _, err := p.fillFromfd()
-	return numFds, err
+	pid := p.Pid
+	statPath := common.HostProc(strconv.Itoa(int(pid)), "fd")
+	d, err := os.Open(statPath)
+	if err != nil {
+		return 0, err
+	}
+	defer d.Close()
+	fnames, err := d.Readdirnames(-1)
+	numFDs := int32(len(fnames))
+	return numFDs, err
 }
 
 // NumThreads returns the number of threads used by the process.

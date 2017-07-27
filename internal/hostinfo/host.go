@@ -541,6 +541,7 @@ func copyHostInfo(dst, src *HostInfo) {
 
 func updateHostInfo() {
 	ticker := time.NewTicker(2 * time.Minute)
+	defer ticker.Stop()
 	go watchHostConfig()
 	for {
 		select {
