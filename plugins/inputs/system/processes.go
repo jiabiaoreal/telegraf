@@ -67,7 +67,12 @@ func (p *Processes) Gather(acc telegraf.Accumulator) error {
 		return err
 	}
 
-	cachedData = fields
+	fieldCopy := map[string]interface{}{}
+	for k, v := range fields {
+		fieldCopy[k] = v
+	}
+	cachedData = fieldCopy
+
 	acc.AddGauge("processes", fields, nil)
 	return nil
 }
