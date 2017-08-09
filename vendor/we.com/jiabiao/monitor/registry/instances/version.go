@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"reflect"
+	"strings"
 
 	"github.com/golang/glog"
 
@@ -22,7 +24,7 @@ func (r *Registry) GetVersionInfo(typ types.ProjectType, cluster types.UUID) (*t
 		return nil, err
 	}
 
-	key := etcd.GetClusterVersionInfoPrefixOfCluster(r.env, typ, cluster)
+	key := etcd.GetClusterVersionInfo(r.env, typ, cluster)
 
 	ret := types.VersionInfo{}
 	if err = store.Get(context.Background(), key, &ret, false); err != nil {
@@ -47,7 +49,7 @@ func (r *Registry) SaveVersionInfo(vi *types.VersionInfo) error {
 		return errors.New("project type and cluster name cannot be nil")
 	}
 
-	key := etcd.GetClusterVersionInfoPrefixOfCluster(r.env, vi.Type, vi.Cluster)
+	key := etcd.GetClusterVersionInfo(r.env, vi.Type, vi.Cluster)
 
 	return store.Update(context.Background(), key, vi, nil, 0)
 }
@@ -110,6 +112,10 @@ func (r *Registry) WatchVersion(ctx context.Context, handler watch.EventHandler)
 				}
 				glog.Warningf("watch version info: %v", err)
 			default:
+				event.Key = strings.TrimPrefix(event.Key, filepath.Join(etcd.DeployBasePrefix, key))
+				if strings.HasPrefix(event.Key, "/") {
+					event.Key = strings.TrimPrefix(event.Key, "/")
+				}
 				if err := handler(event); err != nil {
 					glog.Fatalf("handle version info: %v", err)
 				}

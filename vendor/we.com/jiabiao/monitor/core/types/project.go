@@ -94,29 +94,47 @@ type Addr struct {
 
 // Instance common  instance info
 type Instance struct {
-	UUID        UUID                `json:"uuid,omitempty"`
-	ProjecType  ProjectType         `json:"projectType,omitempty"`
-	HostID      UUID                `json:"hostID,omitempty"`
-	User        string              `json:"user,omitempty"`
-	Host        string              `json:"host,omitempty"`
-	IP          string              `json:"ip,omitempty"`
-	Listening   []Addr              `json:"listening,omitempyt"`
-	Pid         int                 `json:"pid,omitempty"`
-	ClusterName UUID                `json:"clusterName,omitempty"`
-	Env         ENV                 `json:"env,omitempty"`
-	Node        string              `json:"node,omitempty"`
-	Version     string              `json:"version,omitempty"`
-	StartTime   time.Time           `json:"startTime,omitempty"`
-	StopTime    time.Time           `json:"stopTime,omitempty"`
-	ServiceType ServiceType         `json:"seriviceType,omitempty"`
-	UpdateTime  time.Time           `json:"updateTime,omitempty"`
-	Status      InstanceStatus      `json:"status,omitempty"`
-	LifeCycle   InstanceLifeCycle   `json:"lifeCycle,omitempty"`
-	ErrMsg      string              `json:"errMsg,omitempty"`
+	UUID        UUID              `json:"uuid,omitempty"`
+	ProjecType  ProjectType       `json:"projectType,omitempty"`
+	HostID      UUID              `json:"hostID,omitempty"`
+	User        string            `json:"user,omitempty"`
+	Host        string            `json:"host,omitempty"`
+	IP          string            `json:"ip,omitempty"`
+	Listening   []Addr            `json:"listening,omitempyt,omitempty"`
+	Pid         int               `json:"pid,omitempty"`
+	ClusterName UUID              `json:"clusterName,omitempty"`
+	Env         ENV               `json:"env,omitempty"`
+	Node        string            `json:"node,omitempty"`
+	Version     string            `json:"version,omitempty"`
+	StartTime   time.Time         `json:"startTime,omitempty"`
+	StopTime    time.Time         `json:"stopTime,omitempty"`
+	ServiceType ServiceType       `json:"seriviceType,omitempty"`
+	UpdateTime  time.Time         `json:"updateTime,omitempty"`
+	Status      InstanceStatus    `json:"status,omitempty"`
+	Conditions  []*Condition      `json:"conditions,omitempty"` // error
+	Events      []*Condition      `json:"events,omitempty"`     // warning
+	LifeCycle   InstanceLifeCycle `json:"lifeCycle,omitempty"`
+
 	RouteStatus InstanceRouteStatus `json:"routeStatus,omitempty"`
 	ResUsage    *InstanceResUsage   `json:"resUsage,omitempty"`
 
 	Private interface{} `json:"provite,omitempyt,omitempty"`
+}
+
+type ConditionType string
+
+const (
+	HighMem        ConditionType = "highMemory"
+	HighCPU        ConditionType = "highCPU"
+	ProbError      ConditionType = "probeError"
+	HighDiskIO     ConditionType = "highDiskIO"
+	HighThreads    ConditionType = "highThreads"
+	ProcessStopped ConditionType = "processStopped"
+)
+
+type Condition struct {
+	Type    ConditionType `json:"type,omitempty"`
+	Message string        `json:"message,omitempty"`
 }
 
 // InstanceResUsage instance resource usage

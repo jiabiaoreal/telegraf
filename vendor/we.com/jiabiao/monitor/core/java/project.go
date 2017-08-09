@@ -10,7 +10,6 @@ import (
 	"we.com/jiabiao/monitor/core/types"
 
 	"github.com/golang/glog"
-	multierror "github.com/hashicorp/go-multierror"
 )
 
 const (
@@ -38,23 +37,6 @@ type ProjectInterface struct {
 	EnvMap      map[types.ENV]int `json:"-"`
 }
 
-// Validate test if a projectInterface is valid
-func (pi ProjectInterface) Validate() error {
-	var err *multierror.Error
-
-	if pi.Desc == "" {
-		terr := fmt.Errorf("interface description cannot be nil")
-		err = multierror.Append(err, terr)
-	}
-
-	if pi.Data == "" {
-		terr := fmt.Errorf("interface data cannot be nil")
-		err = multierror.Append(err, terr)
-	}
-
-	return err.ErrorOrNil()
-}
-
 // BinInfo project bins info
 type BinInfo struct {
 	Project string            `json:"project,omitempty"`
@@ -67,39 +49,13 @@ type BinInfo struct {
 
 // ProjectInfo  Project info
 type ProjectInfo struct {
-	APIVersion string                       `json:"apiVersion,omitempty"`
-	Name       string                       `json:"project,omitempty"`
-	Desc       string                       `json:"desc,omitempty"`
-	Owner      string                       `json:"owner,omitempty"`
-	Labels     map[string]string            `json:"labels,omitempty"`
-	ZKPath     string                       `json:"zkPath,omitempty"`
-	Bins       map[string]*BinInfo          `json:"bins,omitempty"`
-	Interfaces map[string]*ProjectInterface `json:"interfaces,omitempty"`
-}
-
-// GetDialInterfaces return dial interface of an env
-func (pi *ProjectInfo) GetDialInterfaces(env types.ENV) map[string]*ProjectInterface {
-	if pi == nil {
-		return nil
-	}
-
-	if env == "" {
-		return nil
-	}
-
-	retval := map[string]*ProjectInterface{}
-	for k, v := range pi.Interfaces {
-		if v.Env != "" {
-			if _, ok := v.EnvMap[env]; ok {
-				retval[k] = v
-			}
-
-		} else {
-			retval[k] = v
-		}
-	}
-
-	return retval
+	APIVersion string              `json:"apiVersion,omitempty"`
+	Name       string              `json:"project,omitempty"`
+	Desc       string              `json:"desc,omitempty"`
+	Owner      string              `json:"owner,omitempty"`
+	Labels     map[string]string   `json:"labels,omitempty"`
+	ZKPath     string              `json:"zkPath,omitempty"`
+	Bins       map[string]*BinInfo `json:"bins,omitempty"`
 }
 
 // Normalize project config
@@ -126,29 +82,13 @@ func (pi *ProjectInfo) Normalize() error {
 		}
 	}
 
-	for _, i := range pi.Interfaces {
-		if i.Env != "" {
-			i.EnvMap = map[types.ENV]int{}
-			envs := strings.Split(i.Env, ",")
-			for _, e := range envs {
-				i.EnvMap[types.ENV(e)] = 1
-			}
-		}
-		if len(i.Matches) == 0 && len(i.DontMatches) == 0 {
-			i.Matches = map[string]string{
-				"_contains": "success",
-			}
-		}
-	}
-
 	return nil
-
 }
 
 // ValidateConfig validate if config is valide
 func (pi ProjectInfo) ValidateConfig() error {
 	if pi.APIVersion == "" {
-		return fmt.Errorf("APIVersion cannot be empty")
+		return fmt.Errorf("%v: APIVersion cannot be empty", pi.Name)
 	}
 
 	if pi.Name == "" {
@@ -160,20 +100,10 @@ func (pi ProjectInfo) ValidateConfig() error {
 	}
 
 	if pi.ZKPath == "" {
-		return fmt.Errorf("project service name is empty")
+		return fmt.Errorf("%v: service name is empty", pi.Name)
 	}
 	if len(pi.Bins) == 0 {
-		return fmt.Errorf("no bins configed")
-	}
-
-	if len(pi.Interfaces) < 3 {
-		return fmt.Errorf("project dial interfaces  at least has three")
-	}
-
-	for _, it := range pi.Interfaces {
-		if err := it.Validate(); err != nil {
-			return err
-		}
+		return fmt.Errorf("%v: no bins configed", pi.Name)
 	}
 
 	return nil
@@ -198,7 +128,7 @@ func (pi *ProjectInfo) ToClusterInfo() map[types.UUID]*types.ClusterInfo {
 
 	ret := map[types.UUID]*types.ClusterInfo{}
 	for idstr, binfo := range pi.Bins {
-		clusterStr := fmt.Sprintf("%v:%v:%v:%v:", pi.Name, types.FieldSperator, idstr, types.FieldSperator)
+		clusterStr := fmt.Sprintf("%v%v%v", pi.Name, types.FieldSperator, idstr)
 		id := types.UUID(clusterStr)
 		ci := types.ClusterInfo{
 			Type:        Type,

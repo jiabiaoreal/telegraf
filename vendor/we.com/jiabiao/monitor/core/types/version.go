@@ -15,7 +15,7 @@ type VersionInfo struct {
 }
 
 // MarshalJSON  json.Marshaler interface
-func (vi *VersionInfo) MarshalJSON() ([]byte, error) {
+func (vi VersionInfo) MarshalJSON() ([]byte, error) {
 	type t struct {
 		Type     ProjectType `json:"type,omitempty"`
 		Cluster  UUID        `json:"cluster,omitempty"`  // clusterName without version
@@ -70,9 +70,8 @@ func (vi *VersionInfo) AddVersion(version string) {
 
 // SetExpected set expect version to exp,
 func (vi *VersionInfo) SetExpected(exp string) {
-	if exp != VersionNone {
+	if exp == VersionNone {
 		glog.Warning("set expected version to None")
-		return
 	}
 	vi.backup = vi.expected
 	vi.expected = exp

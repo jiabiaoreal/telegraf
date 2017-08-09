@@ -150,7 +150,7 @@ func (hi HostInfo) GetResource() DeployResource {
 		diskSpace += v.Totoal
 	}
 	ret := DeployResource{
-		Memory:     hi.Memory,
+		Memory:     hi.Memory + hi.SwapSize/2,
 		CPU:        uint64(hi.NumOfCPUs) * cpuResource,
 		DiskSpace:  diskSpace,
 		NetworkIn:  gb,

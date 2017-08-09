@@ -33,11 +33,14 @@ type DeployConfig struct {
 
 // DeployResource resource required to deploy an instance
 type DeployResource struct {
-	Memory     uint64 `json:"memory,omitempty"`
-	CPU        uint64 `json:"cpu,omitempty"`
-	NetworkIn  uint64 `json:"networkIn,omitempty"`
-	NetworkOut uint64 `json:"networkOut,omitempty"`
-	DiskSpace  uint64 `json:"diskSpace,omitempty"`
+	Memory           uint64 `json:"memory,omitempty"`
+	CPU              uint64 `json:"cpu,omitempty"`
+	NetworkIn        uint64 `json:"networkIn,omitempty"`
+	NetworkOut       uint64 `json:"networkOut,omitempty"`
+	DiskSpace        uint64 `json:"diskSpace,omitempty"`
+	MaxAllowedMemory uint64 `json:"maxAllowedMemory,omitempty"`
+	MaxAllowedCPU    uint64 `json:"maxAllowedCPU,omitempty"`
+	MaxAllowdThreads int    `json:"maxAllowdThreads,omitempty"`
 }
 
 // Add add  operand resource usage to dr
@@ -51,11 +54,35 @@ func (dr *DeployResource) Add(operand DeployResource) {
 
 // Subtract ubtract  operand resource usage to dr
 func (dr *DeployResource) Subtract(operand DeployResource) {
-	dr.Memory -= operand.Memory
-	dr.CPU -= operand.CPU
-	dr.NetworkIn -= operand.NetworkIn
-	dr.NetworkOut -= operand.NetworkOut
-	dr.DiskSpace -= operand.DiskSpace
+	if dr.Memory > operand.Memory {
+		dr.Memory -= operand.Memory
+	} else {
+		dr.Memory = 0
+	}
+
+	if dr.CPU > operand.CPU {
+		dr.CPU -= operand.CPU
+	} else {
+		dr.CPU = 0
+	}
+
+	if dr.NetworkIn > operand.NetworkIn {
+		dr.NetworkIn -= operand.NetworkIn
+	} else {
+		dr.NetworkIn = 0
+	}
+
+	if dr.NetworkOut > operand.NetworkOut {
+		dr.NetworkOut -= operand.NetworkOut
+	} else {
+		dr.NetworkOut = 0
+	}
+	if dr.DiskSpace > operand.DiskSpace {
+		dr.DiskSpace -= operand.DiskSpace
+	} else {
+		dr.DiskSpace = 0
+	}
+
 }
 
 // Devide devide  operand resource usage to dr
@@ -123,6 +150,12 @@ func (dr *DeployResource) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (dr DeployResource) String() string {
+	d, _ := json.Marshal(dr)
+
+	return string(d)
+}
+
 // MarshalJSON implements json marshal interface
 func (dr DeployResource) MarshalJSON() ([]byte, error) {
 	type tmp struct {
@@ -145,7 +178,7 @@ func (dr DeployResource) MarshalJSON() ([]byte, error) {
 }
 
 var (
-	resourseRE = regexp.MustCompile(`^(\d+)((k|K|m|M|g|G)(b|B)?)?$`)
+	resourseRE = regexp.MustCompile(`^(\d+\.?\d*)((k|K|m|M|g|G)(b|B)?)?$`)
 )
 
 type resUnit uint64
@@ -174,31 +207,32 @@ func (ru resUnit) String() string {
 		"":  1,
 	}
 
-	switch uint64(0) {
-	case dat % factors["G"]:
-		unit = "G"
-	case dat % factors["M"]:
-		unit = "M"
-	case dat % factors["K"]:
-		unit = "K"
-	case dat:
-		unit = ""
+	tmp := dat
+	for _, u := range []string{"K", "M", "G"} {
+		if tmp/1024 > 0 {
+			unit = u
+			tmp /= 1024
+		} else {
+			break
+		}
 	}
-	return fmt.Sprintf("%.1f%v", float64(dat*1.0/factors[unit]), unit)
+
+	num := float64(dat)/float64(factors[unit]) + 0.5
+	return fmt.Sprintf("%d%v", int64(num), unit)
 }
 
-func (ru resUnit) MarsharJSON() ([]byte, error) {
-	return []byte(ru.String()), nil
+func (ru resUnit) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + ru.String() + `"`), nil
 }
 
 // ParseResoureValue parse resource unit
 func ParseResoureValue(res string) (uint64, error) {
 	matches := resourseRE.FindStringSubmatch(res)
 	if len(matches) != 5 {
-		return 0, fmt.Errorf("not a valid duration string: %q", res)
+		return 0, fmt.Errorf("not a valid resource unit string: %q", res)
 	}
 
-	n, _ := strconv.ParseUint(matches[1], 10, 64)
+	n, _ := strconv.ParseFloat(matches[1], 64)
 
 	switch unit := matches[3]; unit {
 	case "k":
@@ -218,7 +252,7 @@ func ParseResoureValue(res string) (uint64, error) {
 	default:
 		return 0, fmt.Errorf("unknown unit %v", res)
 	}
-	return n, nil
+	return uint64(n), nil
 }
 
 // ToClusterSpec  convert a  ClusterReplicaSpec, ignored version

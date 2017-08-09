@@ -180,13 +180,14 @@ func (dc *DeployConfig) ToCommonDeployConfig() map[types.UUID]*types.DeployConfi
 
 // Validate check if config is valid
 func (dc *DeployConfig) Validate() error {
-	if len(dc.Bins) == 0 {
-		return fmt.Errorf("at least one bin should configed")
+	if len(dc.Project) == 0 {
+		return fmt.Errorf("project name should not be empty：%v", dc)
 	}
 
-	if len(dc.Project) == 0 {
-		return fmt.Errorf("project name should not be empty")
+	if len(dc.Bins) == 0 {
+		return fmt.Errorf("%v: at least one bin should configed", dc.Project)
 	}
+
 	return nil
 }
 

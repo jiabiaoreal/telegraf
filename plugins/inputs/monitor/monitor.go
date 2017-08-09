@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"reflect"
 	"sync"
 	"time"
@@ -516,30 +517,38 @@ func (hrsm *HostReplicaSpecManager) HandleDiffReplicaSpec() error {
 
 			// start new  insances
 			if lack != nil {
-				// we has not opinion  which one should start first, just start the first one
+				// we has not opinion  which one should start first, random pick one
+				chooseFrom := []*core.ClusterReplicaSpec{}
 				lack.Range(func(pt core.ProjectType, typSpec *core.TypeReplicaSpec) bool {
-					typ := core.MonitorType(pt)
-					monitor := hrsm.monitorItems[typ]
 					typSpec.Range(func(cluster core.UUID, cspec *core.ClusterReplicaSpec) bool {
 						if cspec.InstancesNum > 0 {
 							spec := &core.ClusterReplicaSpec{
-								Type:         core.ProjectType(typ),
+								Type:         pt,
 								ClusterName:  cluster,
 								Version:      cspec.Version,
 								InstancesNum: 1,
 							}
-							glog.Infof("start new %v instance %v", typ, cluster)
-							if err := monitor.StartProcess(spec, logoutput); err != nil {
-								glog.Errorf("error start new %v instance %v %v", typ, cluster, err)
-							}
-							glog.Warningf("ret: %v", logoutput.GetDataString())
-							logoutput.Reset()
 
+							chooseFrom = append(chooseFrom, spec)
 						}
-						return false
+						return true
 					})
-					return false
+					return true
 				})
+
+				if len(chooseFrom) > 0 {
+					idx := rand.Intn(len(chooseFrom))
+
+					spec := chooseFrom[idx]
+					typ := core.MonitorType(spec.Type)
+					monitor := hrsm.monitorItems[typ]
+					glog.Infof("start new %v instance %v", spec.Type, spec.ClusterName)
+					if err := monitor.StartProcess(spec, logoutput); err != nil {
+						glog.Errorf("error start new %v instance %v %v", spec.Type, spec.ClusterName, err)
+					}
+					glog.Warningf("ret: %v", logoutput.GetDataString())
+					logoutput.Reset()
+				}
 			}
 
 			nextActionStart = false

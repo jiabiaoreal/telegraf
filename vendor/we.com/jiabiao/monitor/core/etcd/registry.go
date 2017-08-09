@@ -3,6 +3,8 @@ package etcd
 import (
 	"path/filepath"
 
+	"github.com/golang/glog"
+	jp "we.com/jiabiao/monitor/core/java"
 	"we.com/jiabiao/monitor/core/types"
 )
 
@@ -92,6 +94,7 @@ const (
 	projectDeployPrefix  = "deploy"
 	projectProbePrefix   = "probe"
 	projectVersionPrefix = "version"
+	projectDialPrefix    = "dial"
 )
 
 // GetClusterInfoPath returns etcd relative  path of  cluster of type typ
@@ -114,9 +117,19 @@ func GetClusterDeployPrefixOfType(env types.ENV, typ types.ProjectType) string {
 	return filepath.Join(projectDeployPrefix, string(env), string(typ))
 }
 
+// GetClusterDeployConfigPrefix return deploy config prefix path for env
+func GetClusterDeployConfigPrefix(env types.ENV) string {
+	return filepath.Join(projectDeployPrefix, string(env))
+}
+
 // GetClusterProbe returns  etcd relative  path  for probe config of  project cluster
 func GetClusterProbe(env types.ENV, typ types.ProjectType, cluster types.UUID) string {
 	return filepath.Join(projectProbePrefix, string(env), string(typ), string(cluster))
+}
+
+// GetProbePrefix return prob config path prefix of typ
+func GetProbePrefix(typ types.ProjectType) string {
+	return filepath.Join(projectProbePrefix, string(typ))
 }
 
 // GetClusterVersionInfoPrefix returns etcd version info prefix of type env
@@ -129,12 +142,68 @@ func GetClusterVersionInfoPrefixOfEnv(env types.ENV) string {
 	return filepath.Join(projectVersionPrefix, string(env))
 }
 
-// GetClusterVersionInfoPrefixOfCluster  returns etcd version info prefix of type env
-func GetClusterVersionInfoPrefixOfCluster(env types.ENV, typ types.ProjectType, cluster types.UUID) string {
+// GetClusterVersionInfo  returns etcd version info prefix of type env
+func GetClusterVersionInfo(env types.ENV, typ types.ProjectType, cluster types.UUID) string {
 	return filepath.Join(projectVersionPrefix, string(env), string(typ), string(cluster))
 }
 
 // GetClusterVersionInfoPrefixOfType  returns etcd version info prefix of type env
 func GetClusterVersionInfoPrefixOfType(env types.ENV, typ types.ProjectType) string {
 	return filepath.Join(projectVersionPrefix, string(env), string(typ))
+}
+
+/*
+author:prist.shao
+descriptions:java server dial
+*/
+
+//GetDialInfoPrefixOfEnv  returns etcd dial info prefix of type env
+func GetDialInfoPrefixOfEnv(env types.ENV, typ types.ProjectType, cluster types.UUID) string {
+	return filepath.Join(projectDialPrefix, string(env), string(typ), string(cluster))
+}
+
+// GetDialInfoPrefixOfDefault  returns etcd dial info prefix without type env
+func GetDialInfoPrefixOfDefault(typ types.ProjectType, cluster types.UUID) string {
+	return filepath.Join(projectDialPrefix, string(typ), string(cluster))
+}
+
+// zk: we  may sync change from/to zk, so we can ignore zk existence
+//  /mnt/zk/config/server  <==>
+//  /mnt/zk/route/cluster
+//  /mnt/zk/instaces/
+const (
+	ZooKeeperBase = "/mnt/zk"
+	zkRoute       = "route"
+	zkConfig      = "config"
+	zkInstances   = "instance"
+	zkVersion     = "version"
+)
+
+func GetZKversionPath(env types.ENV, typ types.ProjectType, cluster types.UUID) string {
+	if typ != jp.Type {
+		glog.Fatalf("currently only java project type is allowed")
+	}
+
+	pro, bin, err := jp.ParseProjectBinInfo(cluster)
+	if err != nil {
+		glog.Fatalf("not a valid a java cluster name")
+	}
+
+	return filepath.Join(ZooKeeperBase, zkVersion, string(env), string(typ), pro, bin)
+}
+
+func GetZkVersionPrefix() string {
+	return filepath.Join(ZooKeeperBase, zkVersion)
+}
+
+func GetZkRoutePrefix() string {
+	return filepath.Join(ZooKeeperBase, zkRoute)
+}
+
+func GetZkConfigPrefix() string {
+	return filepath.Join(ZooKeeperBase, zkConfig)
+}
+
+func GetZkInstancePrefix() string {
+	return filepath.Join(ZooKeeperBase, zkInstances)
 }

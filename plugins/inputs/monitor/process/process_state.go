@@ -8,16 +8,13 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/net"
 	"github.com/shirou/gopsutil/process"
+	"we.com/jiabiao/common/probe"
 )
 
 // PsState  process State
 type PsState string // process state
-// ProbState  prob state
-type ProbState string // prob state
-
 const (
 	// PsState
-
 	// PSUnknown  state unknown
 	PSUnknown PsState = "unknown"
 	//PSRunning process running
@@ -26,17 +23,6 @@ const (
 	PSStopping PsState = "stopping"
 	// PSStopped process has stopped
 	PSStopped PsState = "stopped"
-
-	// ProbState
-
-	// ProbGreen  prob ok
-	ProbGreen ProbState = "green"
-	// ProbYellow prok warn
-	ProbYellow ProbState = "yellow"
-	// ProbRed  prob error
-	ProbRed ProbState = "red"
-	// ProbUnknown prob state unknown
-	ProbUnknown ProbState = "unknown"
 )
 
 // ProcessState common process state info
@@ -48,7 +34,7 @@ type ProcessState struct {
 	UpdateTime time.Time
 	StopTime   time.Time // assumed stop time, if passed, process is still not stopped, try to stop it again
 	PsState    PsState
-	ProbState  ProbState
+	ProbState  probe.Result
 
 	CtxSwitch process.NumCtxSwitchesStat
 	MemInfo   process.MemoryInfoStat

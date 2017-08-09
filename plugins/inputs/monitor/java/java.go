@@ -10,16 +10,22 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coreos/fleet/log"
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/influxdata/telegraf/internal/config"
 	"github.com/influxdata/telegraf/internal/hostinfo"
 	psm "github.com/influxdata/telegraf/plugins/inputs/monitor/process"
 	"github.com/influxdata/telegraf/plugins/inputs/monitor/types"
+	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/process"
+	"we.com/jiabiao/common/probe"
+	pjava "we.com/jiabiao/common/probe/java"
 	"we.com/jiabiao/monitor/core/java"
 	core "we.com/jiabiao/monitor/core/types"
+	"we.com/jiabiao/monitor/registry/clusters"
 	"we.com/jiabiao/monitor/registry/instances"
+	"we.com/jiabiao/monitor/registry/watch"
 )
 
 const (
@@ -95,6 +101,9 @@ func (p *StateMonitor) InitMonitor(np types.NodeEventPusher, pw types.ProcessWor
 	if err := p.UpdateInstances(); err != nil {
 		glog.Errorf("update java inances error :%v", err)
 	}
+
+	go p.loadAndWatchDeployConfig()
+	go p.loadAndWatchDailInterface()
 
 	go func() {
 		timer := time.NewTimer(5 * time.Second)
@@ -485,6 +494,274 @@ func (p *StateMonitor) CleanOldInstances() error {
 	}
 
 	return merr.ErrorOrNil()
+}
+
+var (
+	dialInterfaces = map[core.UUID]map[string]*java.ProbeInterface{}
+	deployConfigs  = map[core.UUID]*core.DeployConfig{}
+	deployBinMap   = map[string][]string{}
+	projBinMap     = map[string][]string{}
+	lock           sync.RWMutex
+)
+
+func handlerDialInterface(event watch.Event) error {
+	env := hostinfo.GetEnv()
+	dat, ok := event.Object.(*java.ProbeConfig)
+	if !ok {
+		return errors.Errorf("unexpect object type: %T", event.Object)
+	}
+
+	lock.Lock()
+	defer lock.Unlock()
+
+	// remove old  data
+	bins, _ := projBinMap[dat.Project]
+	for _, b := range bins {
+		cluster := core.UUID(fmt.Sprintf("%v%v%v", dat.Project, core.FieldSperator, b))
+		delete(dialInterfaces, cluster)
+	}
+
+	switch event.Type {
+	case watch.Modified, watch.Added:
+		bins = nil
+		for bin := range dat.ProbeInterfaces {
+			cluster := core.UUID(fmt.Sprintf("%v%v%v", dat.Project, core.FieldSperator, bin))
+			ifs := dat.GetProbeInterfaces(env, bin)
+			m := map[string]*java.ProbeInterface{}
+			for _, i := range ifs {
+				m[i.Name] = i
+			}
+			bins = append(bins, bin)
+			dialInterfaces[cluster] = m
+		}
+		projBinMap[dat.Project] = bins
+	}
+
+	return nil
+}
+
+func handlerDeployConfig(event watch.Event) error {
+	dat, ok := event.Object.(*core.DeployConfig)
+	if !ok {
+		return errors.Errorf("unexpect object type: %T", event.Object)
+	}
+
+	lock.Lock()
+	defer lock.Unlock()
+
+	switch event.Type {
+	case watch.Added, watch.Modified:
+		deployConfigs[dat.Cluster] = dat
+	case watch.Deleted:
+		delete(deployConfigs, dat.Cluster)
+	}
+	return nil
+}
+
+func (p *StateMonitor) loadAndWatchDailInterface() error {
+	reg := clusters.JavaProbRegister{}
+
+	for {
+		ctx := context.Background()
+		ctx, cf := context.WithCancel(ctx)
+		go func(ctx context.Context, cf context.CancelFunc) {
+			time.AfterFunc(2*60*time.Minute, func() { cf() })
+			select {
+			case <-p.closeC:
+				cf()
+			case <-ctx.Done():
+			}
+		}(ctx, cf)
+
+		select {
+		case <-p.closeC:
+			return nil
+
+		default:
+			err := reg.Watch(ctx, handlerDialInterface)
+			if err != nil {
+				glog.Errorf("java: watch project dialinterface: %v", err)
+			}
+		}
+
+	}
+}
+
+func (p *StateMonitor) loadAndWatchDeployConfig() error {
+	env := hostinfo.GetEnv()
+	reg := clusters.NewRegistry(env)
+	defer reg.Stop()
+
+	for {
+		ctx := context.Background()
+		ctx, cf := context.WithCancel(ctx)
+		go func(ctx context.Context, cf context.CancelFunc) {
+			time.AfterFunc(2*60*time.Minute, func() { cf() })
+			select {
+			case <-p.closeC:
+				cf()
+			case <-ctx.Done():
+			}
+		}(ctx, cf)
+
+		select {
+		case <-p.closeC:
+			return nil
+
+		default:
+			err := reg.WatchDeployConfig(handlerDeployConfig)
+			if err != nil {
+				glog.Errorf("java: watch project dialinterface: %v", err)
+			}
+		}
+
+	}
+}
+
+func getDialInterface(cluster core.UUID) map[string]*java.ProbeInterface {
+	lock.RLock()
+	defer lock.RUnlock()
+
+	return dialInterfaces[cluster]
+}
+
+func getDeployConfig(cluster core.UUID) *core.DeployConfig {
+	lock.RLock()
+	dc := deployConfigs[cluster]
+	if dc == nil {
+		log.Warning("java: no deploy config for %v", cluster)
+	}
+	defer lock.RUnlock()
+
+	return dc
+}
+
+func (psinfo *ProcessInfos) probe() error {
+	if psinfo == nil || psinfo.jins == nil {
+		return nil
+	}
+
+	jins := psinfo.jins
+
+	lg := func() interface{} {
+		if len(jins.Listening) != 1 {
+			return nil
+		}
+
+		addr := jins.Listening[0]
+		url := fmt.Sprintf("http://%v:%v", addr.IP, addr.Port)
+		dis := getDialInterface(jins.ClusterName)
+		ret := make([]*pjava.Args, 0, len(dis))
+		for _, di := range dis {
+			args := pjava.Args{
+				Name:    di.Name,
+				Cluster: string(jins.ClusterName),
+				Data:    strings.NewReader(di.Data),
+				URL:     url,
+				Headers: di.Header,
+			}
+			ret = append(ret, &args)
+		}
+
+		return ret
+	}
+
+	var conditions []*core.Condition
+	var events []*core.Condition
+
+	// dial interfaces
+	if len(jins.Listening) > 0 {
+		if len(jins.Listening) != 1 {
+			glog.Errorf("java: process havs more than one listening ports: %v", jins.Node)
+
+		} else {
+			ret, _, err := pjava.Probe(lg)
+			if err != nil {
+				glog.Errorf("java probe: %v: %v", jins.ClusterName, err)
+			}
+			if psinfo.state.ProbState != ret {
+				psinfo.state.ProbState = ret
+				if ret == probe.Warning {
+					events = append(events, &core.Condition{
+						Type:    core.ProbError,
+						Message: err.Error(),
+					})
+				} else if ret == probe.Failure {
+					conditions = append(conditions, &core.Condition{
+						Type:    core.ProbError,
+						Message: err.Error(),
+					})
+				}
+			}
+		}
+	}
+
+	resAct := jins.ResUsage
+	cluster := jins.ClusterName
+	dc := getDeployConfig(cluster)
+	if resAct != nil && dc != nil {
+		resReq := dc.ResourceRequired
+
+		if resReq.MaxAllowedMemory == 0 {
+			resReq.MaxAllowedMemory = 2 * resReq.Memory
+		}
+
+		ratio := resAct.Memory * 100 / resReq.Memory
+		switch {
+		case ratio > 120 && resAct.Memory <= resReq.MaxAllowedMemory:
+			events = append(events, &core.Condition{
+				Type:    core.HighMem,
+				Message: fmt.Sprintf("memory usage: %v, %v%%  of configed", resAct.Memory, ratio),
+			})
+		case resReq.Memory >= resReq.MaxAllowedMemory:
+			conditions = append(conditions, &core.Condition{
+				Type:    core.HighMem,
+				Message: fmt.Sprintf("memory usage: %v, greater than configed: %v", resAct.Memory, resReq.MaxAllowedMemory),
+			})
+		}
+
+		if resAct.Threads > resReq.MaxAllowdThreads {
+			conditions = append(conditions, &core.Condition{
+				Type:    core.HighThreads,
+				Message: fmt.Sprintf("threads: %v, greater than  configed: %v", resAct.Threads, resReq.MaxAllowdThreads),
+			})
+		} else if resAct.Threads > resReq.MaxAllowdThreads*8/10 {
+			events = append(events, &core.Condition{
+				Type:    core.HighThreads,
+				Message: fmt.Sprintf("threads: %v, greater than 80%% configed: %v", resAct.Threads, resReq.MaxAllowdThreads),
+			})
+		}
+
+		g := 1024 * 1024 * 1024
+		cpuUsage := uint64(resAct.CPUPercent * float64(g))
+		if cpuUsage > resReq.MaxAllowedCPU {
+			conditions = append(conditions, &core.Condition{
+				Type:    core.HighCPU,
+				Message: fmt.Sprintf("cpu: %.2f%% greater than max allowed: %.2f%%", (resAct.CPUPercent * 100), float64(resReq.MaxAllowedCPU)/float64(g)),
+			})
+		} else if cpuUsage > resReq.MaxAllowedCPU*8/10 || cpuUsage > resReq.CPU*125/100 {
+			events = append(events, &core.Condition{
+				Type:    core.HighCPU,
+				Message: fmt.Sprintf("cpu: %.2f%% greater than configed: %.2f%%", (resAct.CPUPercent * 100), float64(resReq.CPU)/float64(g)),
+			})
+		}
+
+		day := uint64(60 * 60 * 24)
+		if resAct.DiskBytesWrite*day > resReq.DiskSpace {
+			events = append(events, &core.Condition{
+				Type:    core.HighDiskIO,
+				Message: fmt.Sprintf("diskIO: write %v", resAct.DiskBytesWrite),
+			})
+		}
+	}
+
+	jins.Conditions = conditions
+	jins.Events = events
+	if len(jins.Events) > 0 || len(jins.Conditions) > 0 {
+		psinfo.probStateChanged = true
+	}
+
+	return nil
 }
 
 // GetNodeID implements ProcessInfor interface

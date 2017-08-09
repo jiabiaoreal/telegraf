@@ -172,6 +172,14 @@ func (trs *TypeReplicaSpec) Get(cluster UUID, version string) *ClusterReplicaSpe
 	}
 }
 
+// Size num of elements
+func (trs *TypeReplicaSpec) Size() int {
+	if trs == nil {
+		return 0
+	}
+	return trs.tree.Len()
+}
+
 // VersionCmp  compare two version string
 func VersionCmp(a, b string) int {
 	if len(a) > len(b) {
@@ -228,6 +236,10 @@ func (hrs *HostReplicaSpec) TypeList() []ProjectType {
 
 // Get return Typespec of typ, if not exist, returns a new Instances and false
 func (hrs *HostReplicaSpec) Get(typ ProjectType) (*TypeReplicaSpec, bool) {
+	if hrs == nil {
+		return nil, false
+	}
+
 	trs, ok := hrs.data.Load(typ)
 	if ok {
 		return trs.(*TypeReplicaSpec), true
@@ -247,6 +259,9 @@ type HostRangeFunc func(k ProjectType, v *TypeReplicaSpec) bool
 
 // Range range over projectType of this hostReplicatSpec
 func (hrs *HostReplicaSpec) Range(f HostRangeFunc) {
+	if hrs == nil {
+		return
+	}
 	hrs.data.Range(func(k, v interface{}) bool {
 		typ := k.(ProjectType)
 		value := v.(*TypeReplicaSpec)

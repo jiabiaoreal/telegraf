@@ -189,6 +189,12 @@
 			"revisionTime": "2017-05-05T01:03:47Z"
 		},
 		{
+			"checksumSHA1": "7a/F+YTqQYwcYKuaWun91gwGOn0=",
+			"path": "github.com/coreos/fleet/log",
+			"revision": "e98df4c361f508ac103cabb7b5b8409eb92b7511",
+			"revisionTime": "2016-11-02T12:29:37Z"
+		},
+		{
 			"checksumSHA1": "d50/+u/LFlXvEV10HiEoXB9OsGg=",
 			"path": "github.com/coreos/go-systemd/journal",
 			"revision": "1f9909e51b2dab2487c26d64c8f2e7e580e4c9f5",
@@ -303,6 +309,12 @@
 			"path": "github.com/golang/sync/syncmap",
 			"revision": "57af736625aaa69dfa099432bb67e0808eef3bcc",
 			"revisionTime": "2017-05-09T20:06:53Z"
+		},
+		{
+			"checksumSHA1": "g/V4qrXjUGG9B+e3hB+4NAYJ5Gs=",
+			"path": "github.com/gorilla/context",
+			"revision": "08b5f424b9271eedf6f9f0ce86cb9396ed337a42",
+			"revisionTime": "2016-08-17T18:46:32Z"
 		},
 		{
 			"checksumSHA1": "zmCk+lgIeiOf0Ng9aFP9aFy8ksE=",
@@ -880,6 +892,30 @@
 			"revisionTime": "2017-06-06T09:29:28Z"
 		},
 		{
+			"checksumSHA1": "uc/tau5afRP2IB6dQkD0pzjXjI8=",
+			"path": "we.com/jiabiao/common/net",
+			"revision": "84901955fc049943b96c7596277a069e61af6355",
+			"revisionTime": "2017-07-14T06:02:48Z"
+		},
+		{
+			"checksumSHA1": "uqHCMoNjSVcqgfRZu8wLw2cYAj8=",
+			"path": "we.com/jiabiao/common/probe",
+			"revision": "84901955fc049943b96c7596277a069e61af6355",
+			"revisionTime": "2017-07-14T06:02:48Z"
+		},
+		{
+			"checksumSHA1": "M7hApsUt1UA7w8lyNY9sQbu7p8s=",
+			"path": "we.com/jiabiao/common/probe/http",
+			"revision": "84901955fc049943b96c7596277a069e61af6355",
+			"revisionTime": "2017-07-14T06:02:48Z"
+		},
+		{
+			"checksumSHA1": "HtRXstpnDSoqHQl6EvWMv+avGws=",
+			"path": "we.com/jiabiao/common/probe/java",
+			"revision": "84901955fc049943b96c7596277a069e61af6355",
+			"revisionTime": "2017-07-14T06:02:48Z"
+		},
+		{
 			"checksumSHA1": "hD9vw0opmLYmqYwbAUZ+ZraUyAY=",
 			"path": "we.com/jiabiao/common/runtime",
 			"revision": "a5c09c8fa6361ec46deeecb50001d7e6ab560c82",
@@ -928,22 +964,28 @@
 			"revisionTime": "2017-06-06T09:29:28Z"
 		},
 		{
-			"checksumSHA1": "Bnk9LrPZEUmY1WDqZH+mlMmyC+Y=",
+			"checksumSHA1": "OL4Zh7qUnv+NXDxItyKTEAwPcsw=",
 			"path": "we.com/jiabiao/monitor/core/etcd",
-			"revision": "ccd968de2e5c688ad67ec0d80239be1ad02b1f34",
-			"revisionTime": "2017-06-28T06:23:20Z"
+			"revision": "bf2c9087fc9b95d616d8f01f41bf2aaa6a2f77bd",
+			"revisionTime": "2017-08-07T02:16:54Z"
 		},
 		{
-			"checksumSHA1": "9sH+gqwJLq5I2759E3FZ9V8SjRc=",
+			"checksumSHA1": "zLYLqur5NV2Kxe3B4RngY4ew3GA=",
 			"path": "we.com/jiabiao/monitor/core/java",
-			"revision": "ccd968de2e5c688ad67ec0d80239be1ad02b1f34",
-			"revisionTime": "2017-06-28T06:23:20Z"
+			"revision": "bf2c9087fc9b95d616d8f01f41bf2aaa6a2f77bd",
+			"revisionTime": "2017-08-07T02:16:54Z"
 		},
 		{
-			"checksumSHA1": "EaLIp/YrPd4Xx4V9shVyE9XjiCw=",
+			"checksumSHA1": "GG1VZXVibexq/p9D0UZ8DZkWeVA=",
 			"path": "we.com/jiabiao/monitor/core/types",
-			"revision": "ccd634237b74184b6de8183715e0cc707021117b",
-			"revisionTime": "2017-06-28T07:08:24Z"
+			"revision": "bf2c9087fc9b95d616d8f01f41bf2aaa6a2f77bd",
+			"revisionTime": "2017-08-07T02:16:54Z"
+		},
+		{
+			"checksumSHA1": "3ffSn+biiHv1SAeZPO79FnN1EMU=",
+			"path": "we.com/jiabiao/monitor/registry/clusters",
+			"revision": "bf2c9087fc9b95d616d8f01f41bf2aaa6a2f77bd",
+			"revisionTime": "2017-08-07T02:16:54Z"
 		},
 		{
 			"checksumSHA1": "5Vqk2cLuapJ9eBlGTQJGOy36SU4=",
@@ -958,10 +1000,10 @@
 			"revisionTime": "2017-06-28T07:08:24Z"
 		},
 		{
-			"checksumSHA1": "Ze5EyhyYitftNPhECDci7QyavO4=",
+			"checksumSHA1": "H0EEX1PDt85FAlW9F/kcA3PdYHc=",
 			"path": "we.com/jiabiao/monitor/registry/instances",
-			"revision": "ccd968de2e5c688ad67ec0d80239be1ad02b1f34",
-			"revisionTime": "2017-06-28T06:23:20Z"
+			"revision": "bf2c9087fc9b95d616d8f01f41bf2aaa6a2f77bd",
+			"revisionTime": "2017-08-07T02:16:54Z"
 		},
 		{
 			"checksumSHA1": "njhq9ai3mBLp1axWqj/hGhWP1OU=",

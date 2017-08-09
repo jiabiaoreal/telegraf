@@ -47,8 +47,8 @@ func (r *Registry) GetHostActualReplicaSpec(hostid types.UUID) (*types.HostRepli
 	return r.getReplicaSpec(pred)
 }
 
-// GetActualReplicaSpec get actual host replicat spec
-func (r *Registry) GetActualReplicaSpec(hostid types.UUID) (*types.HostReplicaSpec, error) {
+// GetActualReplicaSpec get actual host replicat spec sum up all hosts
+func (r *Registry) GetActualReplicaSpec() (*types.HostReplicaSpec, error) {
 	pred := generic.Everything
 
 	return r.getReplicaSpec(pred)
