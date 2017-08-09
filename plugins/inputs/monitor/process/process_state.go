@@ -9,33 +9,36 @@ import (
 	"github.com/shirou/gopsutil/net"
 	"github.com/shirou/gopsutil/process"
 	"we.com/jiabiao/common/probe"
+	"we.com/jiabiao/monitor/core/types"
 )
 
 // PsState  process State
 type PsState string // process state
 const (
-	// PsState
-	// PSUnknown  state unknown
-	PSUnknown PsState = "unknown"
-	//PSRunning process running
-	PSRunning PsState = "running"
-	// PSStopping process is about to stop or is stopping
-	PSStopping PsState = "stopping"
-	// PSStopped process has stopped
-	PSStopped PsState = "stopped"
-	PSWarning PsState = "warning"
+	PSRunning        PsState = "running"
+	PSHighMemory     PsState = PsState(types.HighMem)
+	PSHighCPU        PsState = PsState(types.HighCPU)
+	PSHighDiskIO     PsState = PsState(types.HighDiskIO)
+	PSHighThreads    PsState = PsState(types.HighThreads)
+	PSProbeError     PsState = PsState(types.ProbError)
+	PSProcessStopped PsState = PsState(types.ProcessStopped)
 )
 
 // ProcessState common process state info
 type ProcessState struct {
-	Pid        int
-	NumFDs     int
-	NumThreads int
-	CPUPercent float64
-	UpdateTime time.Time
-	StopTime   time.Time // assumed stop time, if passed, process is still not stopped, try to stop it again
-	PsState    PsState
-	ProbState  probe.Result
+	Type        types.MonitorType
+	ClusterName types.UUID
+	Pid         int
+	NumFDs      int
+	NumThreads  int
+	CPUPercent  float64
+	UpdateTime  time.Time
+	StopTime    time.Time // assumed stop time, if passed, process is still not stopped, try to stop it again
+	PsState     PsState
+	ProbState   probe.Result
+
+	Conditions []*types.Condition
+	Events     []*types.Condition
 
 	CtxSwitch process.NumCtxSwitchesStat
 	MemInfo   process.MemoryInfoStat

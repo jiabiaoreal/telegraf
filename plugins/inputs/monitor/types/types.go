@@ -4,6 +4,7 @@ import (
 	"io"
 	"time"
 
+	"we.com/jiabiao/common/probe"
 	"we.com/jiabiao/monitor/core/types"
 )
 
@@ -80,6 +81,7 @@ type ProcessInfor interface {
 	GetProcessMetric() (metric *Metric, err error)
 	GetTypeSpecMetrics() (metric *Metric, err error)
 	GetClusterNameAndVersion() (cluster types.UUID, version string)
+	Probe() probe.Result
 
 	GetMonitorType() types.MonitorType
 

@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/coreos/fleet/log"
 	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/influxdata/telegraf/internal/config"
@@ -19,6 +18,7 @@ import (
 	"github.com/influxdata/telegraf/plugins/inputs/monitor/types"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/process"
+
 	"we.com/jiabiao/common/probe"
 	pjava "we.com/jiabiao/common/probe/java"
 	"we.com/jiabiao/monitor/core/java"
@@ -102,7 +102,6 @@ func (p *StateMonitor) InitMonitor(np types.NodeEventPusher, pw types.ProcessWor
 		glog.Errorf("update java inances error :%v", err)
 	}
 
-	go p.loadAndWatchDeployConfig()
 	go p.loadAndWatchDailInterface()
 
 	go func() {
@@ -217,6 +216,8 @@ func (p *StateMonitor) StopProcess(ps types.ProcessInfor, o io.Writer) error {
 		Deadline:     time.Now().Add(5 * time.Minute),
 	}
 
+	psinfo.jins.LifeCycle = core.ILCStopping
+
 	p.worker.AddTask(t)
 	return nil
 }
@@ -312,9 +313,7 @@ func (p *StateMonitor) UpdateInstances() error {
 						return
 					}
 
-					if err := pi.probe(); err != nil {
-						glog.Errorf("java prob: %v", err)
-					}
+					pi.Probe()
 
 					timer.Reset(20 * time.Second)
 				}
@@ -523,8 +522,6 @@ func (p *StateMonitor) CleanOldInstances() error {
 
 var (
 	dialInterfaces = map[core.UUID]map[string]*java.ProbeInterface{}
-	deployConfigs  = map[core.UUID]*core.DeployConfig{}
-	deployBinMap   = map[string][]string{}
 	projBinMap     = map[string][]string{}
 	lock           sync.RWMutex
 )
@@ -565,24 +562,6 @@ func handlerDialInterface(event watch.Event) error {
 	return nil
 }
 
-func handlerDeployConfig(event watch.Event) error {
-	dat, ok := event.Object.(*core.DeployConfig)
-	if !ok {
-		return errors.Errorf("unexpect object type: %T", event.Object)
-	}
-
-	lock.Lock()
-	defer lock.Unlock()
-
-	switch event.Type {
-	case watch.Added, watch.Modified:
-		deployConfigs[dat.Cluster] = dat
-	case watch.Deleted:
-		delete(deployConfigs, dat.Cluster)
-	}
-	return nil
-}
-
 func (p *StateMonitor) loadAndWatchDailInterface() error {
 	reg := clusters.JavaProbRegister{}
 
@@ -612,37 +591,6 @@ func (p *StateMonitor) loadAndWatchDailInterface() error {
 	}
 }
 
-func (p *StateMonitor) loadAndWatchDeployConfig() error {
-	env := hostinfo.GetEnv()
-	reg := clusters.NewRegistry(env)
-	defer reg.Stop()
-
-	for {
-		ctx := context.Background()
-		ctx, cf := context.WithCancel(ctx)
-		go func(ctx context.Context, cf context.CancelFunc) {
-			time.AfterFunc(2*60*time.Minute, func() { cf() })
-			select {
-			case <-p.closeC:
-				cf()
-			case <-ctx.Done():
-			}
-		}(ctx, cf)
-
-		select {
-		case <-p.closeC:
-			return nil
-
-		default:
-			err := reg.WatchDeployConfig(handlerDeployConfig)
-			if err != nil {
-				glog.Errorf("java: watch project dialinterface: %v", err)
-			}
-		}
-
-	}
-}
-
 func getDialInterface(cluster core.UUID) map[string]*java.ProbeInterface {
 	lock.RLock()
 	defer lock.RUnlock()
@@ -650,20 +598,10 @@ func getDialInterface(cluster core.UUID) map[string]*java.ProbeInterface {
 	return dialInterfaces[cluster]
 }
 
-func getDeployConfig(cluster core.UUID) *core.DeployConfig {
-	lock.RLock()
-	dc := deployConfigs[cluster]
-	if dc == nil {
-		log.Warning("java: no deploy config for %v", cluster)
-	}
-	defer lock.RUnlock()
-
-	return dc
-}
-
-func (psinfo *ProcessInfos) probe() error {
+// Probe implements types.ProcessInfo interface
+func (psinfo *ProcessInfos) Probe() probe.Result {
 	if psinfo == nil || psinfo.jins == nil {
-		return nil
+		return probe.Success
 	}
 
 	jins := psinfo.jins
@@ -724,79 +662,7 @@ func (psinfo *ProcessInfos) probe() error {
 		}
 	}
 
-	resAct := jins.ResUsage
-	cluster := jins.ClusterName
-	dc := getDeployConfig(cluster)
-	if resAct != nil && dc != nil {
-		resReq := dc.ResourceRequired
-
-		if resReq.MaxAllowedMemory == 0 {
-			resReq.MaxAllowedMemory = 2 * resReq.Memory
-		}
-
-		ratio := resAct.Memory * 100 / resReq.Memory
-		switch {
-		case ratio > 120 && resAct.Memory <= resReq.MaxAllowedMemory:
-			events = append(events, &core.Condition{
-				Type:    core.HighMem,
-				Message: fmt.Sprintf("memory usage: %v, %v%%  of configed", resAct.Memory, ratio),
-			})
-		case resReq.Memory >= resReq.MaxAllowedMemory:
-			conditions = append(conditions, &core.Condition{
-				Type:    core.HighMem,
-				Message: fmt.Sprintf("memory usage: %v, greater than configed: %v", resAct.Memory, resReq.MaxAllowedMemory),
-			})
-		}
-
-		if resAct.Threads > resReq.MaxAllowdThreads {
-			conditions = append(conditions, &core.Condition{
-				Type:    core.HighThreads,
-				Message: fmt.Sprintf("threads: %v, greater than  configed: %v", resAct.Threads, resReq.MaxAllowdThreads),
-			})
-		} else if resAct.Threads > resReq.MaxAllowdThreads*8/10 {
-			events = append(events, &core.Condition{
-				Type:    core.HighThreads,
-				Message: fmt.Sprintf("threads: %v, greater than 80%% configed: %v", resAct.Threads, resReq.MaxAllowdThreads),
-			})
-		}
-
-		g := 1024 * 1024 * 1024
-		cpuUsage := uint64(resAct.CPUPercent * float64(g))
-		if cpuUsage > resReq.MaxAllowedCPU {
-			conditions = append(conditions, &core.Condition{
-				Type:    core.HighCPU,
-				Message: fmt.Sprintf("cpu: %.2f%% greater than max allowed: %.2f%%", (resAct.CPUPercent * 100), float64(resReq.MaxAllowedCPU)/float64(g)),
-			})
-		} else if cpuUsage > resReq.MaxAllowedCPU*8/10 || cpuUsage > resReq.CPU*125/100 {
-			events = append(events, &core.Condition{
-				Type:    core.HighCPU,
-				Message: fmt.Sprintf("cpu: %.2f%% greater than configed: %.2f%%", (resAct.CPUPercent * 100), float64(resReq.CPU)/float64(g)),
-			})
-		}
-
-		day := uint64(60 * 60 * 24)
-		if resAct.DiskBytesWrite*day > resReq.DiskSpace {
-			events = append(events, &core.Condition{
-				Type:    core.HighDiskIO,
-				Message: fmt.Sprintf("diskIO: write %v", resAct.DiskBytesWrite),
-			})
-		}
-	}
-
-	jins.Conditions = conditions
-	jins.Events = events
-	if len(jins.Conditions) > 0 || len(events) > 0 {
-		psinfo.probStateChanged = true
-		psinfo.state.PsState = psm.PSWarning
-	}
-
-	if jins.LifeCycle == core.ILCStarting && (dc == nil || dc.ServiceType != core.ServiceService) {
-		if len(jins.Conditions) == 0 || len(events) == 0 {
-			jins.LifeCycle = core.ILCRunning
-		}
-	}
-
-	return nil
+	return probe.Success
 }
 
 // GetNodeID implements ProcessInfor interface
