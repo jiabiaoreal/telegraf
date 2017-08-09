@@ -282,6 +282,7 @@ func (p *StateMonitor) UpdateInstances() error {
 			User:        user,
 			ServiceType: core.ServiceUnknown,
 			Status:      core.InstanceUnknown,
+			LifeCycle:   core.ILCStarting,
 		}
 
 		ps = &ProcessInfos{
@@ -295,6 +296,30 @@ func (p *StateMonitor) UpdateInstances() error {
 		if err = updateInstanceInfo(pid, proc, ins, true); err != nil {
 			merr = multierror.Append(merr, err)
 		}
+
+		go func(pi *ProcessInfos) {
+			timer := time.NewTimer(0)
+			proc := ps.proc
+			defer timer.Stop()
+			for {
+				select {
+				case <-timer.C:
+					running, err := proc.IsRunning()
+					if err != nil {
+						glog.Errorf("java prob: %v", err)
+					}
+					if !running {
+						return
+					}
+
+					if err := pi.probe(); err != nil {
+						glog.Errorf("java prob: %v", err)
+					}
+
+					timer.Reset(20 * time.Second)
+				}
+			}
+		}(ps)
 
 		key := ps.getInstanceUUID()
 		p.lock.Lock()
@@ -691,6 +716,9 @@ func (psinfo *ProcessInfos) probe() error {
 						Type:    core.ProbError,
 						Message: err.Error(),
 					})
+				} else if jins.LifeCycle == core.ILCStarting {
+					jins.LifeCycle = core.ILCRunning
+					psinfo.probStateChanged = true
 				}
 			}
 		}
@@ -757,8 +785,15 @@ func (psinfo *ProcessInfos) probe() error {
 
 	jins.Conditions = conditions
 	jins.Events = events
-	if len(jins.Events) > 0 || len(jins.Conditions) > 0 {
+	if len(jins.Conditions) > 0 || len(events) > 0 {
 		psinfo.probStateChanged = true
+		psinfo.state.PsState = psm.PSWarning
+	}
+
+	if jins.LifeCycle == core.ILCStarting && (dc == nil || dc.ServiceType != core.ServiceService) {
+		if len(jins.Conditions) == 0 || len(events) == 0 {
+			jins.LifeCycle = core.ILCRunning
+		}
 	}
 
 	return nil

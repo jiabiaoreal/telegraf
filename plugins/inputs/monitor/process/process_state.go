@@ -23,6 +23,7 @@ const (
 	PSStopping PsState = "stopping"
 	// PSStopped process has stopped
 	PSStopped PsState = "stopped"
+	PSWarning PsState = "warning"
 )
 
 // ProcessState common process state info
