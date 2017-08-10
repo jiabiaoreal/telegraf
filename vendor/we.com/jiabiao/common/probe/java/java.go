@@ -78,7 +78,6 @@ func probe0(args []*Args) map[string]*Result {
 	var wg sync.WaitGroup
 
 	p := func(args *Args) {
-		wg.Add(1)
 		defer wg.Done()
 		ps := Result{
 			Name:   args.Name,
@@ -139,6 +138,7 @@ func probe0(args []*Args) map[string]*Result {
 	}()
 
 	for _, a := range args {
+		wg.Add(1)
 		go p(a)
 	}
 
