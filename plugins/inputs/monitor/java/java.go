@@ -646,6 +646,8 @@ func (psinfo *ProcessInfos) Probe() probe.Result {
 				}
 			}
 		}
+	} else {
+		glog.V(10).Infof("java prob: %v listen port is empty", jins.ClusterName)
 	}
 
 	jins.Conditions = conditions
