@@ -182,6 +182,8 @@ func (hrsm *HostReplicaSpecManager) Stop() {
 
 	hrsm.hostClient.Stop()
 
+	psm.Stop()
+
 	time.Sleep(time.Second)
 }
 
@@ -312,6 +314,7 @@ func (hrsm *HostReplicaSpecManager) getActualReplicaSpec() error {
 
 // Probe  probes processinfo status
 func (hrsm *HostReplicaSpecManager) Probe() {
+	psm.Start()
 	timer := time.NewTimer(0)
 	for {
 		select {

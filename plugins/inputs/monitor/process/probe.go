@@ -186,7 +186,7 @@ func (ps *ProcessState) Probe() probe.Result {
 	dc := getDeployConfig(cluster)
 	var resReq core.DeployResource
 
-	if dc != nil {
+	if dc == nil {
 		resReq = medium
 		tpCfg, ok := defaultResUsage[ps.Type]
 		if ok {

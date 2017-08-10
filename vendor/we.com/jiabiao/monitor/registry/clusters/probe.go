@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
-	"strings"
 
 	"github.com/golang/glog"
 
 	"we.com/jiabiao/monitor/core/etcd"
 	"we.com/jiabiao/monitor/core/java"
-	"we.com/jiabiao/monitor/core/types"
 	"we.com/jiabiao/monitor/registry/generic"
 	"we.com/jiabiao/monitor/registry/watch"
 )
@@ -79,7 +77,7 @@ func (jpr *JavaProbRegister) Watch(ctx context.Context, handler watch.EventHandl
 	}
 
 	key := ""
-	watcher, err := store.Watch(ctx, key, generic.Everything, true, reflect.TypeOf(types.HostReplicaSpec{}))
+	watcher, err := store.Watch(ctx, key, generic.Everything, true, reflect.TypeOf(java.ProbeConfig{}))
 	if err != nil {
 		return err
 	}
@@ -87,7 +85,7 @@ func (jpr *JavaProbRegister) Watch(ctx context.Context, handler watch.EventHandl
 	for {
 		select {
 		case event := <-watcher.ResultChan():
-			glog.Infof("receiver HostReplicaSpecs new event: %v, %v", event.Type, event.Key)
+			glog.Infof("receiver java probe new event: %v, %v", event.Type, event.Key)
 			switch event.Type {
 			case watch.Error:
 				err, ok := event.Object.(error)
@@ -97,13 +95,8 @@ func (jpr *JavaProbRegister) Watch(ctx context.Context, handler watch.EventHandl
 				}
 				glog.Warningf("watch err: %v", err)
 			default:
-				event.Key = strings.TrimPrefix(event.Key, filepath.Join(
-					etcd.DeployBasePrefix, etcd.GetProbePrefix(java.Type)))
-				if strings.HasPrefix(event.Key, "/") {
-					event.Key = strings.TrimPrefix(event.Key, "/")
-				}
 				if err := handler(event); err != nil {
-					glog.Fatalf("handle host replica spec event: %v", err)
+					glog.Fatalf("handle java probe config event: %v", err)
 				}
 			}
 		case <-ctx.Done():

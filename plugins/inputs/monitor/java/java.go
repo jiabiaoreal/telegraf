@@ -298,28 +298,6 @@ func (p *StateMonitor) UpdateInstances() error {
 			merr = multierror.Append(merr, err)
 		}
 
-		go func(pi *ProcessInfos) {
-			timer := time.NewTimer(0)
-			proc := ps.proc
-			defer timer.Stop()
-			for {
-				select {
-				case <-timer.C:
-					running, err := proc.IsRunning()
-					if err != nil {
-						glog.Errorf("java prob: %v", err)
-					}
-					if !running {
-						return
-					}
-
-					pi.Probe()
-
-					timer.Reset(20 * time.Second)
-				}
-			}
-		}(ps)
-
 		key := ps.getInstanceUUID()
 		p.lock.Lock()
 		p.psState[key] = ps
@@ -631,9 +609,14 @@ func (psinfo *ProcessInfos) Probe() probe.Result {
 
 	state := psinfo.state
 
-	ret := state.Probe()
-	conditions := state.Conditions
-	events := state.Events
+	var conditions, events []*core.Condition
+	var ret probe.Result
+
+	if state != nil {
+		ret = state.Probe()
+		conditions = state.Conditions
+		events = state.Events
+	}
 
 	// dial interfaces
 	if len(jins.Listening) > 0 {
