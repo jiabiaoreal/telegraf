@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"we.com/jiabiao/common/probe"
 	phttp "we.com/jiabiao/common/probe/http"
@@ -40,7 +41,9 @@ func Probe(lg probe.LoadGenerator) (probe.Result, string, error) {
 		return probe.Failure, "", errors.New("java probe: load generator must return data of type Java Args")
 	}
 
+	glog.V(20).Infof("probe: start %+v", args)
 	result := probe0(args)
+	glog.V(20).Infof("probe: end %+v", result)
 
 	for _, r := range result {
 		if r.err != nil {
