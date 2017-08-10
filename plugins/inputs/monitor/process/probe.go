@@ -167,7 +167,7 @@ func getDeployConfig(cluster core.UUID) *core.DeployConfig {
 	}
 	dc := deployConfigs[cluster]
 	if dc == nil {
-		log.Warning("java: no deploy config for %v", cluster)
+		log.Warningf("java: no deploy config for %v", cluster)
 	}
 	lock.RUnlock()
 
