@@ -102,9 +102,12 @@ func probe0(args []*Args) map[string]*Result {
 			size = args.MaxRespSize
 			ps.err = errors.Errorf("response to large: %v", size)
 		}
+		if size <= 0 {
+			size = args.MaxRespSize
+		}
 
 		content := make([]byte, size)
-		_, err = io.ReadFull(resp.Body, content)
+		s, err := io.ReadFull(resp.Body, content)
 		ps.data = string(content)
 		if err != nil {
 			ps.err = err
@@ -112,6 +115,9 @@ func probe0(args []*Args) map[string]*Result {
 		}
 
 		if ps.err != nil {
+			if int64(s) >= args.MaxRespSize {
+				ps.err = errors.Errorf("response to large: %v", size)
+			}
 			ps.Result = checkResp(ps.data)
 		}
 

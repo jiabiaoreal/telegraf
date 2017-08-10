@@ -524,7 +524,7 @@ func handlerDialInterface(event watch.Event) error {
 	switch event.Type {
 	case watch.Modified, watch.Added:
 		bins = nil
-		for bin := range dat.ProbeInterfaces {
+		for bin := range dat.Interfaces {
 			cluster := core.UUID(fmt.Sprintf("%v%v%v", dat.Project, core.FieldSperator, bin))
 			ifs := dat.GetProbeInterfaces(env, bin)
 			m := map[string]*java.ProbeInterface{}
