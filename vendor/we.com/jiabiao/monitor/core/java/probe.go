@@ -21,7 +21,7 @@ type ProbeInterface struct {
 }
 
 // Validate test if a ProbeInterface is valid
-func (pi ProbeInterface) Validate() error {
+func (pi *ProbeInterface) Validate() error {
 	var err *multierror.Error
 
 	if pi.Desc == "" {
@@ -39,19 +39,21 @@ func (pi ProbeInterface) Validate() error {
 
 // ProbeConfig  probe config of a project
 type ProbeConfig struct {
-	Project         string
-	ProbeInterfaces map[string]map[string]ProbeInterface
+	Project    string                               `json:"project,omitempty"`
+	Interfaces map[string]map[string]ProbeInterface `json:"interfaces,omitempty"`
 }
 
 // Validate checks if Probeconfig is valid
 func (pc *ProbeConfig) Validate() error {
-	for _, bins := range pc.ProbeInterfaces {
-		for _, i := range bins {
+	for _, bins := range pc.Interfaces {
+		for name, i := range bins {
 			if len(i.Matches) == 0 && len(i.DontMatches) == 0 {
 				i.Matches = map[string]string{
 					"_contains": "success",
 				}
 			}
+
+			i.Name = name
 
 			if err := i.Validate(); err != nil {
 				return err
@@ -68,7 +70,7 @@ func (pc *ProbeConfig) GetProbeInterfaces(env types.ENV, bin string) []*ProbeInt
 		return nil
 	}
 
-	binPIs, ok := pc.ProbeInterfaces[bin]
+	binPIs, ok := pc.Interfaces[bin]
 	if !ok {
 		return nil
 	}
