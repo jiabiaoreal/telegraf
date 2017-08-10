@@ -629,8 +629,11 @@ func (psinfo *ProcessInfos) Probe() probe.Result {
 		return ret
 	}
 
-	var conditions []*core.Condition
-	var events []*core.Condition
+	state := psinfo.state
+
+	ret := state.Probe()
+	conditions := state.Conditions
+	events := state.Events
 
 	// dial interfaces
 	if len(jins.Listening) > 0 {
@@ -662,7 +665,16 @@ func (psinfo *ProcessInfos) Probe() probe.Result {
 		}
 	}
 
-	return probe.Success
+	jins.Conditions = conditions
+	jins.Events = events
+
+	if len(conditions) > 0 {
+		ret = probe.Failure
+	} else if len(events) > 0 {
+		ret = probe.Warning
+	}
+
+	return ret
 }
 
 // GetNodeID implements ProcessInfor interface

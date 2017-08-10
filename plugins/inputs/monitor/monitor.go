@@ -159,6 +159,8 @@ func (hrsm *HostReplicaSpecManager) Start(acc telegraf.Accumulator) error {
 	// make sure current instances met configed
 	go hrsm.HandleDiffReplicaSpec()
 
+	go hrsm.Probe()
+
 	return nil
 }
 
@@ -306,6 +308,38 @@ func (hrsm *HostReplicaSpecManager) getActualReplicaSpec() error {
 	hrsm.lock.Unlock()
 
 	return nil
+}
+
+// Probe  probes processinfo status
+func (hrsm *HostReplicaSpecManager) Probe() {
+	timer := time.NewTimer(0)
+	for {
+		select {
+		case <-timer.C:
+			glog.V(15).Info("monitor: start to probe")
+			wg := sync.WaitGroup{}
+			for typ, monitor := range hrsm.monitorItems {
+				ps, err := monitor.GetProcessPidList()
+				glog.V(10).Infof("end get process list of %v", typ)
+				if err != nil {
+					glog.Errorf("error get process of type %v, %v", typ, err)
+				}
+
+				for _, p := range ps {
+					wg.Add(1)
+					go func(ps types.ProcessInfor) {
+						defer wg.Done()
+						ps.Probe()
+					}(p)
+				}
+			}
+			wg.Wait()
+			glog.V(15).Info("monitor: end probe")
+			timer.Reset(10 * time.Second)
+		case <-hrsm.stopC:
+			return
+		}
+	}
 }
 
 // Report reports process and type spcific metrics to upstream at a certain interval
