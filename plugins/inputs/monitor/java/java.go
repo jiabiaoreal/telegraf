@@ -670,6 +670,9 @@ func (psinfo *ProcessInfos) updateState() psm.ProcessState {
 	if psinfo.updateTime.Add(5 * time.Second).Before(now) {
 		state := psm.CalProcessState(psinfo.proc)
 
+		state.ClusterName = psinfo.jins.ClusterName
+		state.Type = core.MonitorType(psinfo.jins.ProjecType)
+
 		psinfo.jins.ResUsage = &core.InstanceResUsage{
 			Memory:         state.MemInfo.RSS,
 			CPUTotal:       state.CPUInfo.Total(),
