@@ -622,8 +622,8 @@ func (psinfo *ProcessInfos) Probe() probe.Result {
 	if len(jins.Listening) > 0 {
 		if len(jins.Listening) != 1 {
 			glog.Errorf("java: process havs more than one listening ports: %v", jins.Node)
-
 		} else {
+			glog.V(10).Infof("java: probe start: %v", jins.ClusterName)
 			ret, _, err := pjava.Probe(lg)
 			if err != nil {
 				glog.Errorf("java probe: %v: %v", jins.ClusterName, err)

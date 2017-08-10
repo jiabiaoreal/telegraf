@@ -65,10 +65,17 @@ var (
 	}
 )
 
+type diskIOInfo struct {
+	Time  time.Time
+	Count uint64
+}
+
 var (
 	stopC         chan struct{}
 	lock          sync.RWMutex
 	startd        bool
+	diskLock      sync.RWMutex
+	lastDiskWrite = map[int]*diskIOInfo{}
 	deployConfigs = map[core.UUID]*core.DeployConfig{}
 	deployBinMap  = map[string][]string{}
 )
@@ -201,16 +208,14 @@ func (ps *ProcessState) Probe() probe.Result {
 
 	resAct := &core.InstanceResUsage{
 		Memory:         ps.MemInfo.RSS,
-		CPUTotal:       ps.CPUInfo.Total(),
 		CPUPercent:     ps.CPUPercent,
 		Threads:        ps.NumThreads,
-		DiskBytesRead:  ps.DiskIO.ReadBytes,
 		DiskBytesWrite: ps.DiskIO.WriteBytes,
 	}
 
 	ratio := resAct.Memory * 100 / resReq.Memory
 	switch {
-	case ratio > 120 && resAct.Memory <= resReq.MaxAllowedMemory:
+	case ratio > 150 && resAct.Memory <= resReq.MaxAllowedMemory:
 		events = append(events, &core.Condition{
 			Type:    core.HighMem,
 			Message: fmt.Sprintf("memory usage: %v, %v%%  of configed", resAct.Memory, ratio),
@@ -241,19 +246,43 @@ func (ps *ProcessState) Probe() probe.Result {
 			Type:    core.HighCPU,
 			Message: fmt.Sprintf("cpu: %.2f%% greater than max allowed: %.2f%%", (resAct.CPUPercent * 100), float64(resReq.MaxAllowedCPU)/float64(g)),
 		})
-	} else if cpuUsage > resReq.MaxAllowedCPU*8/10 || cpuUsage > resReq.CPU*125/100 {
+	} else if cpuUsage > resReq.MaxAllowedCPU*8/10 || cpuUsage > resReq.CPU*5 {
 		events = append(events, &core.Condition{
 			Type:    core.HighCPU,
 			Message: fmt.Sprintf("cpu: %.2f%% greater than configed: %.2f%%", (resAct.CPUPercent * 100), float64(resReq.CPU)/float64(g)),
 		})
 	}
 
-	day := uint64(60 * 60 * 24)
-	if resAct.DiskBytesWrite*day > resReq.DiskSpace {
-		events = append(events, &core.Condition{
-			Type:    core.HighDiskIO,
-			Message: fmt.Sprintf("diskIO: write %v", resAct.DiskBytesWrite),
-		})
+	diskLock.RLock()
+	diskInfo, ok := lastDiskWrite[ps.Pid]
+	diskLock.RUnlock()
+
+	renew := true
+	if ok {
+		day := uint64(12 * 24)
+		d := time.Now().Sub(diskInfo.Time).Seconds()
+		size := resAct.DiskBytesWrite - diskInfo.Count
+		// in 5mins
+		if d < 300 {
+			if size*day > resReq.DiskSpace {
+				events = append(events, &core.Condition{
+					Type:    core.HighDiskIO,
+					Message: fmt.Sprintf("diskIO: write %v", resAct.DiskBytesWrite),
+				})
+			} else {
+				renew = false
+			}
+		}
+	}
+
+	if renew {
+		di := &diskIOInfo{
+			Time:  time.Now(),
+			Count: resAct.DiskBytesWrite,
+		}
+		diskLock.Lock()
+		lastDiskWrite[ps.Pid] = di
+		diskLock.Unlock()
 	}
 
 	ps.Conditions = conditions
