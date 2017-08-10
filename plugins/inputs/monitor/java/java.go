@@ -592,6 +592,7 @@ func (psinfo *ProcessInfos) Probe() probe.Result {
 		addr := jins.Listening[0]
 		url := fmt.Sprintf("http://%v:%v", addr.IP, addr.Port)
 		dis := getDialInterface(jins.ClusterName)
+		glog.V(20).Infof("probe: dial interfaces :%v", dis)
 		ret := make([]*pjava.Args, 0, len(dis))
 		for _, di := range dis {
 			args := pjava.Args{
