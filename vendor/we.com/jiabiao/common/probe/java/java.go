@@ -102,6 +102,7 @@ func probe0(args []*Args) map[string]*Result {
 		ps.err = err
 		ps.TimeTrack = tt
 		if err != nil {
+			glog.Warningf("probe: request err: %v", err)
 			resultC <- &ps
 			return
 		}
@@ -125,6 +126,7 @@ func probe0(args []*Args) map[string]*Result {
 		ps.data = string(content)
 		if err != nil {
 			ps.err = err
+			resultC <- &ps
 			return
 		}
 

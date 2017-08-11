@@ -14,7 +14,6 @@ import (
 	"syscall"
 	"unicode"
 
-	"github.com/golang/glog"
 	multierror "github.com/hashicorp/go-multierror"
 )
 
@@ -129,7 +128,6 @@ func getPids(re *regexp.Regexp, matchBinOnly bool) []int {
 
 		cmdline, err := ioutil.ReadFile(file)
 		if err != nil {
-			glog.V(4).Infof("Error reading file %s: %+v", path, err)
 			return skip
 		}
 		exe := []string{}
