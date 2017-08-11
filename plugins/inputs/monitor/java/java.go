@@ -628,23 +628,24 @@ func (psinfo *ProcessInfos) Probe() probe.Result {
 			ret, _, err := pjava.Probe(lg)
 			if err != nil {
 				glog.Errorf("java probe: %v: %v", jins.ClusterName, err)
+			} else {
+				err = errors.New("unknown error")
 			}
-			if psinfo.state.ProbState != ret {
-				psinfo.state.ProbState = ret
-				if ret == probe.Warning {
-					events = append(events, &core.Condition{
-						Type:    core.ProbError,
-						Message: err.Error(),
-					})
-				} else if ret == probe.Failure {
-					conditions = append(conditions, &core.Condition{
-						Type:    core.ProbError,
-						Message: err.Error(),
-					})
-				} else if jins.LifeCycle == core.ILCStarting {
-					jins.LifeCycle = core.ILCRunning
-					psinfo.probStateChanged = true
-				}
+
+			psinfo.state.ProbState = ret
+			if ret == probe.Warning {
+				events = append(events, &core.Condition{
+					Type:    core.ProbError,
+					Message: err.Error(),
+				})
+			} else if ret == probe.Failure {
+				conditions = append(conditions, &core.Condition{
+					Type:    core.ProbError,
+					Message: err.Error(),
+				})
+			} else if jins.LifeCycle == core.ILCStarting {
+				jins.LifeCycle = core.ILCRunning
+				psinfo.probStateChanged = true
 			}
 		}
 	} else {

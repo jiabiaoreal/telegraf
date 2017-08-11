@@ -111,34 +111,26 @@ func probe0(args []*Args) map[string]*Result {
 			args.MaxRespSize = DefaultRespSize
 		}
 
-		size := resp.ContentLength
 		// read at most args.MaxRespSize data from response
-		if size > args.MaxRespSize {
-			size = args.MaxRespSize
-			ps.err = errors.Errorf("response to large: %v", size)
-		}
-		if size <= 0 {
-			size = args.MaxRespSize
-		}
-
+		size := args.MaxRespSize
 		content := make([]byte, size)
 		s, err := io.ReadFull(resp.Body, content)
 		ps.data = string(content[:s])
+
 		if err != nil && io.ErrUnexpectedEOF != err {
 			glog.Warningf("probe: read response: %v", err)
 			ps.err = err
-			resultC <- &ps
-			return
 		}
 
 		glog.V(12).Infof("probe: response: %v", ps.data)
 		if ps.err == nil {
-			if int64(s) >= args.MaxRespSize {
-				ps.err = errors.Errorf("response to large: %v", size)
-			}
 			ps.Result = checkResp(ps.data)
-			if ps.Result != probe.Success && ps.err != nil {
-				ps.err = errors.New(ps.data)
+			if ps.Result != probe.Success {
+				if int64(s) >= args.MaxRespSize {
+					ps.err = errors.Errorf("response to large: %v", size)
+				} else {
+					ps.err = errors.New(ps.data)
+				}
 			}
 		}
 
