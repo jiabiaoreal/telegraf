@@ -148,9 +148,9 @@ func probe0(args []*Args) map[string]*Result {
 }
 
 type respStatus struct {
-	Status  int    `json:"status,omitempty"`
-	Success string `json:"success,omitempty"`
-	Fail    string `json:"fail,omitempty"`
+	Status int    `json:"status,omitempty"`
+	Fail   string `json:"fail,omitempty"`
+	Error  string `json:"error,omitempty"`
 }
 
 func checkResp(res string) probe.Result {
@@ -159,8 +159,10 @@ func checkResp(res string) probe.Result {
 	result := respStatus{}
 	err := decoder.Decode(&result)
 	if err != nil {
+		glog.Warningf("probe: decode response: %v, %v", err, res)
 		return probe.Failure
 	}
+	glog.V(15).Infof("probe: result: %v", result)
 
 	if result.Status > 300 {
 		return probe.Failure
