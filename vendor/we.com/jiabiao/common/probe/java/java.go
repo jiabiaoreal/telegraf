@@ -12,6 +12,8 @@ import (
 	"we.com/jiabiao/common/probe"
 	phttp "we.com/jiabiao/common/probe/http"
 	"we.com/jiabiao/common/yaml"
+
+	"github.com/hashicorp/go-multierror"
 )
 
 const (
@@ -41,17 +43,30 @@ func Probe(lg probe.LoadGenerator) (probe.Result, string, error) {
 		return probe.Failure, "", errors.New("java probe: load generator must return data of type Java Args")
 	}
 
-	glog.V(20).Infof("probe: start %+v", args)
-	result := probe0(args)
-	glog.V(20).Infof("probe: end %+v", result)
+	if len(args) == 0 {
+		glog.V(15).Infof("probe args is empty, return")
+		return probe.Success, "", nil
+	}
 
+	glog.V(20).Infof("probe: start %v, %+v", len(args), args[0])
+	result := probe0(args)
+
+	count := 0
+	var merr *multierror.Error
 	for _, r := range result {
-		if r.err != nil {
-			return probe.Failure, "", r.err
+		if r.err != nil || r.Result == probe.Failure {
+			count++
+			if r.err != nil {
+				merr = multierror.Append(merr, r.err)
+			}
 		}
-		if r.Result == probe.Failure {
-			return probe.Failure, "", r.err
-		}
+	}
+
+	if count*2 > len(args) {
+		return probe.Failure, "", merr.ErrorOrNil()
+	}
+	if count > 0 {
+		return probe.Warning, "", merr.ErrorOrNil()
 	}
 
 	return probe.Success, "", nil

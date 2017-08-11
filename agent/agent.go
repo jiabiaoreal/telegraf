@@ -265,7 +265,6 @@ func (a *Agent) flusher(shutdown chan struct{}, metricC chan telegraf.Metric) er
 	go func() {
 		defer wg.Done()
 		for {
-			glog.V(15).Infof("len outMetriC: %v", len(outMetricC))
 			select {
 			case <-shutdown:
 				if len(outMetricC) > 0 {
@@ -326,7 +325,6 @@ func (a *Agent) flusher(shutdown chan struct{}, metricC chan telegraf.Metric) er
 		case metric := <-metricC:
 			// NOTE potential bottleneck here as we put each metric through the
 			// processors serially.
-			glog.V(15).Infof("receive a new metric: %v", metric)
 			mS := []telegraf.Metric{metric}
 			for _, processor := range a.Config.Processors {
 				mS = processor.Apply(mS...)
