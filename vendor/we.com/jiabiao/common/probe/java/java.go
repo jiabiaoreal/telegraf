@@ -124,7 +124,8 @@ func probe0(args []*Args) map[string]*Result {
 		content := make([]byte, size)
 		s, err := io.ReadFull(resp.Body, content)
 		ps.data = string(content)
-		if err != nil {
+		if err != nil && io.ErrUnexpectedEOF != err {
+			glog.Warningf("probe: read response: %v", err)
 			ps.err = err
 			resultC <- &ps
 			return
