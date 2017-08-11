@@ -131,13 +131,13 @@ func probe0(args []*Args) map[string]*Result {
 			return
 		}
 
-		glog.V(12).Infof("probe: response: %v", content)
+		glog.V(12).Infof("probe: response: %v", ps.data)
 		if ps.err != nil {
 			if int64(s) >= args.MaxRespSize {
 				ps.err = errors.Errorf("response to large: %v", size)
 			}
 			ps.Result = checkResp(ps.data)
-			if ps.err != nil {
+			if ps.Result != probe.Success && ps.err != nil {
 				ps.err = errors.New(ps.data)
 			}
 		}
@@ -194,5 +194,5 @@ func checkResp(res string) probe.Result {
 		return probe.Failure
 	}
 
-	return probe.Failure
+	return probe.Success
 }
