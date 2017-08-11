@@ -123,7 +123,7 @@ func probe0(args []*Args) map[string]*Result {
 
 		content := make([]byte, size)
 		s, err := io.ReadFull(resp.Body, content)
-		ps.data = string(content)
+		ps.data = string(content[:s])
 		if err != nil && io.ErrUnexpectedEOF != err {
 			glog.Warningf("probe: read response: %v", err)
 			ps.err = err
@@ -132,7 +132,7 @@ func probe0(args []*Args) map[string]*Result {
 		}
 
 		glog.V(12).Infof("probe: response: %v", ps.data)
-		if ps.err != nil {
+		if ps.err == nil {
 			if int64(s) >= args.MaxRespSize {
 				ps.err = errors.Errorf("response to large: %v", size)
 			}
