@@ -135,9 +135,9 @@ type ReportTags map[string]string
 
 func GetCommonReportTags() ReportTags {
 	ret := map[string]string{
-		"hostid":   string(hostinfo.GetHostID()),
-		"hostname": hostinfo.GetHostName(),
-		"env":      string(hostinfo.GetEnv()),
+		"hostid": string(hostinfo.GetHostID()),
+		"ip":     hostinfo.GetInternalIP(),
+		"env":    string(hostinfo.GetEnv()),
 	}
 
 	return ReportTags(ret)

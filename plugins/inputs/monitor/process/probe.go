@@ -32,6 +32,7 @@ var (
 		DiskSpace:        0,
 		MaxAllowedMemory: uint64(320 * m),
 		MaxAllowdThreads: 1 * k,
+		MaxAllowedCPU:    uint64(g / 2),
 	}
 
 	medium = core.DeployResource{
@@ -42,6 +43,7 @@ var (
 		DiskSpace:        1,
 		MaxAllowedMemory: uint64(650 * m),
 		MaxAllowdThreads: 2 * k,
+		MaxAllowedCPU:    uint64(1 * g),
 	}
 
 	high = core.DeployResource{
@@ -52,6 +54,7 @@ var (
 		DiskSpace:        1,
 		MaxAllowedMemory: uint64(4 * g),
 		MaxAllowdThreads: 2 * k,
+		MaxAllowedCPU:    uint64(2 * g),
 	}
 
 	// defaultResUsage default resource uage of an instance of type of env
@@ -64,8 +67,6 @@ var (
 			core.ENV("idc"):  high,
 		},
 	}
-
-	defalutMaxAllowThreads = 3 * k / 2
 )
 
 type diskIOInfo struct {
@@ -193,21 +194,24 @@ func (ps *ProcessState) Probe() (probe.Result, string) {
 	var conditions []*core.Condition
 	cluster := ps.ClusterName
 	dc := getDeployConfig(cluster)
-	var resReq core.DeployResource
+	var resReq = medium
 
-	if dc == nil {
-		resReq = medium
-		tpCfg, ok := defaultResUsage[ps.Type]
-		if ok {
-			rs, ok := tpCfg[hostinfo.GetEnv()]
-			if ok {
-				resReq = rs
+	tpCfg, ok := defaultResUsage[ps.Type]
+	if ok {
+		rs, ok := tpCfg[hostinfo.GetEnv()]
+		if ok && dc == nil {
+			resReq = rs
+		} else if dc != nil {
+			resReq = dc.ResourceRequired
+			if resReq.MaxAllowdThreads == 0 {
+				resReq.MaxAllowdThreads = rs.MaxAllowdThreads
 			}
-		}
-	} else {
-		resReq = dc.ResourceRequired
-		if resReq.MaxAllowdThreads == 0 {
-			resReq.MaxAllowdThreads = defalutMaxAllowThreads
+			if resReq.MaxAllowedCPU == 0 {
+				resReq.MaxAllowedCPU = rs.MaxAllowedCPU
+			}
+			if resReq.MaxAllowedMemory == 0 {
+				resReq.MaxAllowedMemory = rs.MaxAllowedMemory
+			}
 		}
 	}
 
@@ -245,16 +249,16 @@ func (ps *ProcessState) Probe() (probe.Result, string) {
 	}
 
 	g := 1024 * 1024 * 1024
-	cpuUsage := uint64(resAct.CPUPercent * float64(g))
+	cpuUsage := uint64(resAct.CPUPercent * float64(g/100))
 	if cpuUsage > resReq.MaxAllowedCPU {
 		conditions = append(conditions, &core.Condition{
 			Type:    core.HighCPU,
-			Message: fmt.Sprintf("cpu: %.2f%% greater than max allowed: %.2f%%", (resAct.CPUPercent * 100), float64(resReq.MaxAllowedCPU)/float64(g)),
+			Message: fmt.Sprintf("cpu: %.2f%% greater than max allowed: %.2f%%", resAct.CPUPercent, float64(resReq.MaxAllowedCPU*100)/float64(g)),
 		})
 	} else if cpuUsage > resReq.MaxAllowedCPU*8/10 || cpuUsage > resReq.CPU*5 {
 		events = append(events, &core.Condition{
 			Type:    core.HighCPU,
-			Message: fmt.Sprintf("cpu: %.2f%% greater than configed: %.2f%%", (resAct.CPUPercent * 100), float64(resReq.CPU)/float64(g)),
+			Message: fmt.Sprintf("cpu: %.2f%% greater than configed: %.2f%%", resAct.CPUPercent, float64(resReq.CPU*100)/float64(g)),
 		})
 	}
 
@@ -313,5 +317,6 @@ func (ps *ProcessState) Probe() (probe.Result, string) {
 			reason = fmt.Sprintf("%v; %v: %v", reason, c.Type, c.Message)
 		}
 	}
+	ps.ProbState = ret
 	return ret, strings.TrimLeft(reason, "; ")
 }

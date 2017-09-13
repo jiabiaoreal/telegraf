@@ -186,3 +186,18 @@ func (p *Process) MemoryPercent() (float32, error) {
 
 	return (100 * float32(used) / float32(total)), nil
 }
+
+// CPUPercent returns how many percent of the CPU time this process uses
+func (p *Process) CPUPercent() (float64, error) {
+	crtTime, err := p.CreateTime()
+	if err != nil {
+		return 0, err
+	}
+
+	cpu, err := p.Times()
+	if err != nil {
+		return 0, err
+	}
+
+	return (100 * (cpu.Total()) / float64(time.Now().Unix()-(crtTime/1000))), nil
+}
