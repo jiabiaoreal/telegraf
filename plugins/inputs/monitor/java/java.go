@@ -577,9 +577,9 @@ func getDialInterface(cluster core.UUID) map[string]*java.ProbeInterface {
 }
 
 // Probe implements types.ProcessInfo interface
-func (psinfo *ProcessInfos) Probe() probe.Result {
+func (psinfo *ProcessInfos) Probe() (probe.Result, string) {
 	if psinfo == nil || psinfo.jins == nil {
-		return probe.Success
+		return probe.Success, ""
 	}
 
 	jins := psinfo.jins
@@ -612,9 +612,10 @@ func (psinfo *ProcessInfos) Probe() probe.Result {
 
 	var conditions, events []*core.Condition
 	var ret probe.Result
+	var msg string
 
 	if state != nil {
-		ret = state.Probe()
+		ret, msg = state.Probe()
 		conditions = state.Conditions
 		events = state.Events
 	}
@@ -622,7 +623,12 @@ func (psinfo *ProcessInfos) Probe() probe.Result {
 	// dial interfaces
 	if len(jins.Listening) > 0 {
 		if len(jins.Listening) != 1 {
-			glog.Errorf("java: process havs more than one listening ports: %v", jins.Node)
+			msg := fmt.Sprintf("process havs more than one listening ports: %v", jins.Node)
+			glog.Errorf("java: %v", msg)
+			events = append(events, &core.Condition{
+				Type:    core.ProbError,
+				Message: msg,
+			})
 		} else {
 			glog.V(10).Infof("java: probe start: %v", jins.ClusterName)
 			ret, _, err := pjava.Probe(lg)
@@ -657,11 +663,17 @@ func (psinfo *ProcessInfos) Probe() probe.Result {
 
 	if len(conditions) > 0 {
 		ret = probe.Failure
-	} else if len(events) > 0 {
+		for _, c := range conditions {
+			msg = fmt.Sprintf("%v; %v: %v", msg, c.Type, c.Message)
+		}
+	} else if len(events) > 0 && ret != probe.Failure {
 		ret = probe.Warning
+		for _, e := range events {
+			msg = fmt.Sprintf("%v; %v: %v", msg, e.Type, e.Message)
+		}
 	}
 
-	return ret
+	return ret, strings.TrimLeft(msg, "; ")
 }
 
 // GetNodeID implements ProcessInfor interface

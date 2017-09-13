@@ -3,6 +3,7 @@ package process
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -63,6 +64,8 @@ var (
 			core.ENV("idc"):  high,
 		},
 	}
+
+	defalutMaxAllowThreads = 3 * k / 2
 )
 
 type diskIOInfo struct {
@@ -91,7 +94,6 @@ func Start() {
 	startd = true
 	stopC = make(chan struct{})
 	go loadAndWatchDeployConfig()
-
 }
 
 // Stop stops watch etcd deploy config changes
@@ -182,9 +184,9 @@ func getDeployConfig(cluster core.UUID) *core.DeployConfig {
 }
 
 // Probe  check process resource usage
-func (ps *ProcessState) Probe() probe.Result {
+func (ps *ProcessState) Probe() (probe.Result, string) {
 	if ps == nil {
-		return probe.Success
+		return probe.Success, ""
 	}
 
 	var events []*core.Condition
@@ -204,6 +206,9 @@ func (ps *ProcessState) Probe() probe.Result {
 		}
 	} else {
 		resReq = dc.ResourceRequired
+		if resReq.MaxAllowdThreads == 0 {
+			resReq.MaxAllowdThreads = defalutMaxAllowThreads
+		}
 	}
 
 	resAct := &core.InstanceResUsage{
@@ -290,14 +295,23 @@ func (ps *ProcessState) Probe() probe.Result {
 	ps.PsState = PSRunning
 	ret := probe.Success
 
+	var reason string
+
 	if len(events) > 0 {
 		ps.PsState = PsState(events[0].Type)
 		ret = probe.Warning
+		for _, e := range events {
+			reason = fmt.Sprintf("%v; %v: %v", reason, e.Type, e.Message)
+		}
 	}
 
 	if len(conditions) > 0 {
 		ps.PsState = PsState(conditions[0].Type)
 		ret = probe.Failure
+		reason = ""
+		for _, c := range conditions {
+			reason = fmt.Sprintf("%v; %v: %v", reason, c.Type, c.Message)
+		}
 	}
-	return ret
+	return ret, strings.TrimLeft(reason, "; ")
 }

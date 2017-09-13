@@ -81,7 +81,7 @@ type ProcessInfor interface {
 	GetProcessMetric() (metric *Metric, err error)
 	GetTypeSpecMetrics() (metric *Metric, err error)
 	GetClusterNameAndVersion() (cluster types.UUID, version string)
-	Probe() probe.Result
+	Probe() (result probe.Result, reason string)
 
 	GetMonitorType() types.MonitorType
 

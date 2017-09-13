@@ -120,7 +120,6 @@ func (hrsm *HostReplicaSpecManager) UpdateHostInfo() error {
 			glog.V(10).Info("receiver stop signal, stop update hostinfo")
 			return nil
 		}
-
 	}
 }
 
@@ -233,7 +232,7 @@ func (hrsm *HostReplicaSpecManager) handleHostSpecEvent(event watch.Event) error
 			"type": event.Type,
 		}
 
-		hrsm.acc.AddFields("replicaWathc", metric, tags)
+		hrsm.acc.AddFields("replicaWatch", metric, tags)
 	}()
 
 	dat, ok := event.Object.(*core.HostReplicaSpec)
@@ -247,7 +246,7 @@ func (hrsm *HostReplicaSpecManager) handleHostSpecEvent(event watch.Event) error
 	switch event.Type {
 	case watch.Deleted:
 		alert.SendMsg(fmt.Sprintf("host replica spec deleted %v, event: %v", hostid, dat))
-		glog.Fatalf("host replica spec is deleted: %v", dat)
+		glog.Errorf("host replica spec is deleted: %v", dat)
 
 	case watch.Added, watch.Modified:
 		old := hrsm.ExpectedReplicaSpec
@@ -283,6 +282,21 @@ func (hrsm *HostReplicaSpecManager) WatchExpectedSpecUpdate() error {
 	}
 
 	go hrsm.hostClient.WatchHostReplicaSpec(context.TODO(), hostinfo.GetHostID(), hrsm.handleHostSpecEvent)
+
+	go func() {
+		ticker := time.NewTicker(30 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := hrsm.ReLoadExpectedSpec(); err != nil {
+					glog.Errorf("monitor: reload host replica err: %v", err)
+				}
+			case <-hrsm.stopC:
+				return
+			}
+		}
+	}()
 
 	return nil
 }
@@ -320,6 +334,7 @@ func (hrsm *HostReplicaSpecManager) Probe() {
 		select {
 		case <-timer.C:
 			glog.V(15).Info("monitor: start to probe")
+
 			wg := sync.WaitGroup{}
 			for typ, monitor := range hrsm.monitorItems {
 				ps, err := monitor.GetProcessPidList()
@@ -328,11 +343,18 @@ func (hrsm *HostReplicaSpecManager) Probe() {
 					glog.Errorf("error get process of type %v, %v", typ, err)
 				}
 
+				wg.Add(len(ps))
 				for _, p := range ps {
-					wg.Add(1)
+					time.Sleep(20 * time.Millisecond)
+					tags := psm.GetCommonReportTags()
+					c, v := p.GetClusterNameAndVersion()
+					tags["cluster"] = string(c)
+					tags["version"] = string(v)
+					tags["project_type"] = string(typ)
 					go func(ps types.ProcessInfor) {
 						defer wg.Done()
-						ps.Probe()
+						res, msg := ps.Probe()
+						hrsm.acc.AddFields("probe", map[string]interface{}{"result": res, "node": ps.GetNodeID(), "message": msg}, tags)
 					}(p)
 				}
 			}
