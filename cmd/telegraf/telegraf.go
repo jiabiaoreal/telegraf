@@ -325,6 +325,9 @@ func main() {
 			glog.Fatalf("%s and %s", err, err2)
 		}
 		return
+	case *fSignal != "":
+		handCMD(*fSignal)
+		return
 	}
 
 	// test config file
@@ -342,12 +345,6 @@ func main() {
 		glog.Fatalf("%v", err)
 	}
 	generic.SetEtcdConfig(cfg)
-
-	cmd := *fSignal
-	if cmd != "" {
-		handCMD(cmd)
-		return
-	}
 
 	glog.V(10).Infof("args: %v", args)
 
