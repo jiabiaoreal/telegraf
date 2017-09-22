@@ -25,8 +25,15 @@ type ClusterReplicaSpec struct {
 	// so: this field should be able to uniquely  identify a server
 	ClusterName UUID `json:"clusterName,omitempty"`
 	// Version may be not needed:
-	Version      string `json:"version,omitempty"`
-	InstancesNum int    `json:"instancesNum,omitempty"`
+	Version       string             `json:"version,omitempty"`
+	InstancesNum  int                `json:"instancesNum,omitempty"`
+	RestartPolicy RestartPolicy      `json:"restartPolicy,omitempty"`
+	UpdatePolicy  DeployUpdatePolicy `json:"updatePolicy,omitempty"`
+
+	Image        string                 `json:"image,omitempty"`
+	ImageVersion string                 `json:"imageVersion,omitempty"`
+	DeployDir    string                 `json:"deployDir,omitempty"`
+	Values       map[string]interface{} `json:"values,omitempty"`
 }
 
 const (
@@ -282,6 +289,9 @@ func (hrs *HostReplicaSpec) AddCluserSpec(crs ClusterReplicaSpec) {
 	}
 
 	trs.Add(crs)
+	if trs.Size() == 0 {
+		hrs.data.Delete(typ)
+	}
 }
 
 // AddTypeSpec adds cluster spec in trs to hrs

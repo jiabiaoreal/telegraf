@@ -6,29 +6,139 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/pkg/errors"
 )
+
+// RestartType when to restart
+type RestartType string
+
+// RestartPolicy action taken when  process exits
+type RestartPolicy struct {
+	Type  RestartType `json:"type,omitempty"`
+	Until time.Time   `json:"value,omitempty"`
+}
+
+// MarshalJSON json.Marshal interface
+func (rp RestartPolicy) MarshalJSON() ([]byte, error) {
+	if rp.Type == OneTime || rp.Type == Always {
+		return json.Marshal(rp.Type)
+	}
+
+	type p RestartPolicy
+
+	return json.Marshal(p(rp))
+}
+
+// UnmarshalJSON  json.Unmarshal  interface
+func (rp *RestartPolicy) UnmarshalJSON(data []byte) error {
+	var s RestartType
+	err := json.Unmarshal(data, &s)
+
+	if err == nil {
+		if s != OneTime && s != Always {
+			return errors.Errorf("unknown restart policy: %v", s)
+		}
+
+		rp.Type = s
+		return nil
+	}
+
+	type p struct {
+		Type  RestartType `json:"type,omitempty"`
+		Value interface{} `json:"value,omitempty"`
+	}
+
+	t := p{}
+	if err := json.Unmarshal(data, &t); err != nil {
+		return err
+	}
+
+	if t.Type != Until {
+		return errors.Errorf("unknown restart policy: %v", t.Type)
+	}
+
+	switch a := t.Value.(type) {
+	case string:
+		var format string
+		switch len(a) {
+		case 5:
+			format = "15:04"
+		case 10:
+			format = "2006-01-02"
+		case 16:
+			format = "2006-01-02 15:04"
+		case len(time.RFC3339):
+			format = time.RFC3339
+		default:
+			return errors.Errorf("unknown date format for restart type %v, %v", t.Type, a)
+		}
+
+		d, err := time.Parse(format, a)
+		if err != nil {
+			return err
+		}
+
+		rp.Type = t.Type
+		rp.Until = d
+		return nil
+
+	case float64:
+		rp.Until = time.Unix(int64(a), 0)
+		rp.Type = t.Type
+	default:
+		return errors.Errorf("unknown value for restart policy of %v, %v", t.Type, a)
+	}
+
+	return nil
+}
 
 var (
 	// CPUUnit cpu hz
 	CPUUnit = uint64(2.6 * 1000 * 1000 * 1000)
+
+	imageName = regexp.MustCompile(`^[a-z]+([.-][a-z]+)*/[a-z]+([.-][a-z]+)*$`)
+
+	// OneTime 执行一次,  程序退出后(正常或异常)， 什么都不干
+	OneTime RestartType = "onetime"
+	// Always 总是重启， 程序退出后自动拉起
+	Always RestartType = "always"
+	// Until 在一个时间之前， 总是重启， 之后停掉
+	// 对于长时间运行的程序， 在停掉前会先告警
+	Until RestartType = "until"
+)
+
+type DeployUpdatePolicy string
+
+const (
+	// Inplace default for java applications
+	Inplace DeployUpdatePolicy = "inplace"
+	// ABWorld default for php or web applicatsion
+	ABWorld DeployUpdatePolicy = "abworld"
+	// Versioned every version has its own folder
+	Versioned DeployUpdatePolicy = "versioned"
 )
 
 // DeployConfig config  how an project should be deployed
 type DeployConfig struct {
-	Type          ProjectType `json:"projectType"`
-	Cluster       UUID        `json:"cluster"` // cluster unique defines an project of type Type
-	NumOfInstance int         `json:"numOfInstance"`
-	ServiceType   ServiceType `json:"serviceType"`
+	Type          ProjectType `json:"projectType,omitempty"`
+	Cluster       UUID        `json:"cluster,omitempty"` // cluster unique defines an project of type Type
+	NumOfInstance int         `json:"numOfInstance,omitempty"`
+	ServiceType   ServiceType `json:"serviceType,omitempty"`
 
-	SourceRepo      string `json:"sourceRepo,omitempty"`
-	ReleaseGitRepo  string `json:"relaseRepo"`
-	DeployGitBranch string `json:"deployBranch"`
-	SourceDir       string `json:"sourceDir"`
-	DeployDir       string `json:"deployDir,omitempty"`
+	Image        string                 `json:"image,omitempty"`
+	DeployDir    string                 `json:"deployDir,omitempty"`
+	Values       map[string]interface{} `json:"values,omitempty"`
+	UpdatePolicy DeployUpdatePolicy     `json:"updatePolicy,omitempty"`
 
 	// these fields used to select which hosts can start this project
-	Labels           map[string]string `json:"selector"`
-	ResourceRequired DeployResource    `json:"resourceRequired"`
+	Labels           map[string]string `json:"selector,omitempty"`
+	ResourceRequired DeployResource    `json:"resourceRequired,omitempty"`
+
+	// RestartPolicy action taken, when process exits,
+	// default always, restat
+	RestartPolicy RestartPolicy `json:"restartPolicy,omitempty"`
 }
 
 // DeployResource resource required to deploy an instance
@@ -261,8 +371,9 @@ func (dc *DeployConfig) ToClusterSpec() *ClusterReplicaSpec {
 	ret := ClusterReplicaSpec{
 		Type: dc.Type,
 
-		ClusterName:  dc.Cluster,
-		InstancesNum: dc.NumOfInstance,
+		ClusterName:   dc.Cluster,
+		InstancesNum:  dc.NumOfInstance,
+		RestartPolicy: dc.RestartPolicy,
 	}
 
 	return &ret

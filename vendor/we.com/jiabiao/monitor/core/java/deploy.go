@@ -17,43 +17,39 @@ var (
 
 // DeployConfig  java deploy config
 type DeployConfig struct {
-	Project    string `json:"project"`
-	SourceRepo string `json:"sourceRepo"`
+	Project string `json:"project,omitempty"`
 
-	ReleaseGitRepo   string                `json:"relaseRepo"`
-	DeployGitBranch  string                `json:"deployBranch"`
-	SourceDir        string                `json:"sourceDir"`
-	DeployDir        string                `json:"deployDir"`
-	ResourceRequired *types.DeployResource `json:"resourceRequired,omitempty"`
+	// Image  is not versioned
+	Image        string                   `json:"images,omitempty"`
+	UpdatePolicy types.DeployUpdatePolicy `json:"updatePolicy,omitempty"`
 
-	Labels map[string]string          `json:"selector,omitempty"`
-	Bins   map[string]BinDeployConfig `json:"bins"`
+	DeployDir        string                     `json:"deployDir,omitempty"`
+	ResourceRequired *types.DeployResource      `json:"resourceRequired,omitempty"`
+	Values           map[string]interface{}     `json:"values,omitempty"`
+	Labels           map[string]string          `json:"selector,omitempty"`
+	Bins             map[string]BinDeployConfig `json:"bins,omitempty"`
 }
 
 // BinDeployConfig bin deploy config
 type BinDeployConfig struct {
-	ServiceType      types.ServiceType     `json:"serviceTypes"`
-	SourceRepo       string                `json:"sourceRepo,omitempty"`
-	ReleaseGitRepo   string                `json:"relaseRepo,omitempty"`
-	DeployGitBranch  string                `json:"deployBranch,omitempty"`
-	SourceDir        string                `json:"sourceDir,omitempty"`
-	DeployDir        string                `json:"deployDir,omitempty"`
-	ResourceRequired *types.DeployResource `json:"resourceRequired,omitempty"`
+	ServiceType      types.ServiceType      `json:"serviceTypes,omitempty"`
+	Image            string                 `json:"images,omitempty"`
+	Values           map[string]interface{} `json:"values,omitempty"`
+	DeployDir        string                 `json:"deployDir,omitempty"`
+	RestartPolicy    types.RestartPolicy    `json:"restartPolicy,omitempty"`
+	ResourceRequired *types.DeployResource  `json:"resourceRequired,omitempty"`
 
 	Labels        map[string]string `json:"selector,omitempty"`
-	NumOfInstance int               `json:"numOfInstance"`
+	NumOfInstance int               `json:"numOfInstance,omitempty"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler interface
 func (dc *DeployConfig) UnmarshalJSON(data []byte) error {
 	type plain DeployConfig
-	p := &plain{}
 
-	if err := json.Unmarshal(data, p); err != nil {
+	if err := json.Unmarshal(data, (*plain)(dc)); err != nil {
 		return err
 	}
-
-	*dc = DeployConfig(*p)
 
 	if dc.ResourceRequired == nil {
 		dc.ResourceRequired = &types.DeployResource{}
@@ -139,35 +135,33 @@ func (dc *DeployConfig) ToCommonDeployConfig() map[types.UUID]*types.DeployConfi
 			res.DiskSpace = resRequired.DiskSpace
 		}
 
+		image := dc.Image
+		if bdinfo.Image != "" {
+			image = bdinfo.Image
+		}
+
+		numInstance := 1
+		if bdinfo.NumOfInstance > 0 {
+			numInstance = bdinfo.NumOfInstance
+		}
+
+		values := mergeMapTo(dc.Values, bdinfo.Values)
+
 		dcfg := types.DeployConfig{
-			Type:             Type,
-			Cluster:          id,
-			NumOfInstance:    bdinfo.NumOfInstance,
-			ServiceType:      bdinfo.ServiceType,
-			SourceRepo:       dc.SourceRepo,
-			ReleaseGitRepo:   dc.ReleaseGitRepo,
-			DeployGitBranch:  dc.DeployGitBranch,
-			SourceDir:        dc.SourceDir,
+			Type:          Type,
+			Cluster:       id,
+			NumOfInstance: numInstance,
+			ServiceType:   bdinfo.ServiceType,
+
+			Image:            image,
+			UpdatePolicy:     dc.UpdatePolicy,
+			RestartPolicy:    bdinfo.RestartPolicy,
 			DeployDir:        dc.DeployDir,
+			Values:           values,
 			Labels:           labels,
 			ResourceRequired: res,
 		}
 
-		if bdinfo.SourceRepo != "" {
-			dcfg.SourceRepo = bdinfo.SourceRepo
-		}
-
-		if bdinfo.ReleaseGitRepo != "" {
-			dcfg.ReleaseGitRepo = bdinfo.ReleaseGitRepo
-		}
-
-		if bdinfo.DeployGitBranch != "" {
-			dcfg.DeployGitBranch = bdinfo.DeployGitBranch
-		}
-
-		if bdinfo.SourceDir != "" {
-			dcfg.SourceDir = bdinfo.SourceDir
-		}
 		if bdinfo.DeployDir != "" {
 			dcfg.DeployDir = bdinfo.DeployDir
 		}
@@ -201,4 +195,34 @@ func LoadDeployConfig(reader io.Reader) (*DeployConfig, error) {
 		return nil, err
 	}
 	return &ret, nil
+}
+
+func mergeMapTo(a map[string]interface{}, b map[string]interface{}) map[string]interface{} {
+	// b is empty
+	if len(b) == 0 {
+		ret := map[string]interface{}{}
+		for k, v := range a {
+			ret[k] = v
+		}
+		return ret
+	}
+
+	for k, v := range a {
+		ov, ok := b[k]
+		if !ok {
+			b[k] = v
+			continue
+		}
+
+		switch mb := ov.(type) {
+		case map[string]interface{}:
+			switch ma := v.(type) {
+			case map[string]interface{}:
+				b[k] = mergeMapTo(ma, mb)
+			}
+		}
+
+	}
+
+	return b
 }
