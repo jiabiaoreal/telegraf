@@ -26,6 +26,7 @@ type Process struct {
 	gids           []int32
 	numThreads     int32
 	memInfo        *MemoryInfoStat
+	sigInfo        *SignalInfoStat
 
 	lastCPUTimes *cpu.TimesStat
 	lastCPUTime  time.Time
@@ -37,15 +38,27 @@ type OpenFilesStat struct {
 }
 
 type MemoryInfoStat struct {
-	RSS  uint64 `json:"rss"`  // bytes
-	VMS  uint64 `json:"vms"`  // bytes
-	Swap uint64 `json:"swap"` // bytes
+	RSS    uint64 `json:"rss"`    // bytes
+	VMS    uint64 `json:"vms"`    // bytes
+	Data   uint64 `json:"data"`   // bytes
+	Stack  uint64 `json:"stack"`  // bytes
+	Locked uint64 `json:"locked"` // bytes
+	Swap   uint64 `json:"swap"`   // bytes
+}
+
+type SignalInfoStat struct {
+	PendingProcess uint64 `json:"pending_process"`
+	PendingThread  uint64 `json:"pending_thread"`
+	Blocked        uint64 `json:"blocked"`
+	Ignored        uint64 `json:"ignored"`
+	Caught         uint64 `json:"caught"`
 }
 
 type RlimitStat struct {
-	Resource int32 `json:"resource"`
-	Soft     int32 `json:"soft"`
-	Hard     int32 `json:"hard"`
+	Resource int32  `json:"resource"`
+	Soft     int32  `json:"soft"` //TODO too small. needs to be uint64
+	Hard     int32  `json:"hard"` //TODO too small. needs to be uint64
+	Used     uint64 `json:"used"`
 }
 
 type IOCountersStat struct {
@@ -186,18 +199,20 @@ func (p *Process) MemoryPercent() (float32, error) {
 
 	return (100 * float32(used) / float32(total)), nil
 }
-
-// CPUPercent returns how many percent of the CPU time this process uses
+// CPU_Percent returns how many percent of the CPU time this process uses
 func (p *Process) CPUPercent() (float64, error) {
-	crtTime, err := p.CreateTime()
-	if err != nil {
-		return 0, err
-	}
+        crt_time, err := p.CreateTime()
+        if err != nil {
+                return 0, err
+        }
 
-	cpu, err := p.Times()
-	if err != nil {
-		return 0, err
-	}
 
-	return (100 * (cpu.Total()) / float64(time.Now().Unix()-(crtTime/1000))), nil
+        cpu, err := p.Times()
+        if err != nil {
+                return 0, err
+        }
+
+
+        return (100 * (cpu.Total()) / float64(time.Now().Unix()-(crt_time/1000))), nil
 }
+

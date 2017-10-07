@@ -46,6 +46,7 @@ type MetricFamily struct {
 type PrometheusClient struct {
 	Listen             string
 	ExpirationInterval internal.Duration `toml:"expiration_interval"`
+	Path               string            `toml:"path"`
 
 	server *http.Server
 
@@ -58,7 +59,7 @@ type PrometheusClient struct {
 
 var sampleConfig = `
   ## Address to listen on
-  # listen = ":9126"
+  # listen = ":9273"
 
   ## Interval to expire metrics and not deliver to prometheus, 0 == no expiration
   # expiration_interval = "60s"
@@ -68,18 +69,29 @@ func (p *PrometheusClient) Start() error {
 	prometheus.Register(p)
 
 	if p.Listen == "" {
-		p.Listen = "localhost:9126"
+		p.Listen = "localhost:9273"
+	}
+
+	if p.Path == "" {
+		p.Path = "/metrics"
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", prometheus.Handler())
+	mux.Handle(p.Path, prometheus.Handler())
 
 	p.server = &http.Server{
 		Addr:    p.Listen,
 		Handler: mux,
 	}
 
-	go p.server.ListenAndServe()
+	go func() {
+		if err := p.server.ListenAndServe(); err != nil {
+			if err != http.ErrServerClosed {
+				glog.Errorf("Error creating prometheus metric endpoint, err: %s\n",
+					err.Error())
+			}
+		}
+	}()
 	return nil
 }
 
@@ -95,7 +107,9 @@ func (p *PrometheusClient) Connect() error {
 func (p *PrometheusClient) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	return p.server.Shutdown(ctx)
+	err := p.server.Shutdown(ctx)
+	prometheus.Unregister(p)
+	return err
 }
 
 func (p *PrometheusClient) SampleConfig() string {
@@ -246,7 +260,17 @@ func (p *PrometheusClient) Write(metrics []telegraf.Metric) error {
 				}
 				p.fam[mname] = fam
 			} else {
-				if fam.ValueType != vt {
+				// Metrics can be untyped even though the corresponding plugin
+				// creates them with a type.  This happens when the metric was
+				// transferred over the network in a format that does not
+				// preserve value type and received using an input such as a
+				// queue consumer.  To avoid issues we automatically upgrade
+				// value type from untyped to a typed metric.
+				if fam.ValueType == prometheus.UntypedValue {
+					fam.ValueType = vt
+				}
+
+				if vt != prometheus.UntypedValue && fam.ValueType != vt {
 					// Don't return an error since this would be a permanent error
 					glog.Infof("Mixed ValueType for measurement %q; dropping point", point.Name())
 					break

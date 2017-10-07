@@ -9,13 +9,13 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 	"unsafe"
 
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/internal/common"
 	"github.com/shirou/gopsutil/net"
+	"golang.org/x/sys/unix"
 )
 
 // copied from sys/sysctl.h
@@ -99,8 +99,8 @@ func (p *Process) Exe() (string, error) {
 		return "", err
 	}
 
-	lsof := exec.Command(lsof_bin, "-p", strconv.Itoa(int(p.Pid)), "-Fn")
-	awk := exec.Command(awk_bin, "NR==3{print}")
+	lsof := exec.Command(lsof_bin, "-p", strconv.Itoa(int(p.Pid)), "-Fpfn")
+	awk := exec.Command(awk_bin, "NR==5{print}")
 	sed := exec.Command(sed_bin, "s/n\\//\\//")
 
 	output, _, err := common.Pipeline(lsof, awk, sed)
@@ -245,6 +245,10 @@ func (p *Process) IOnice() (int32, error) {
 	return 0, common.ErrNotImplementedError
 }
 func (p *Process) Rlimit() ([]RlimitStat, error) {
+	var rlimit []RlimitStat
+	return rlimit, common.ErrNotImplementedError
+}
+func (p *Process) RlimitUsage(_ bool) ([]RlimitStat, error) {
 	var rlimit []RlimitStat
 	return rlimit, common.ErrNotImplementedError
 }
@@ -443,8 +447,8 @@ func (p *Process) getKProc() (*KinfoProc, error) {
 	procK := KinfoProc{}
 	length := uint64(unsafe.Sizeof(procK))
 	buf := make([]byte, length)
-	_, _, syserr := syscall.Syscall6(
-		syscall.SYS___SYSCTL,
+	_, _, syserr := unix.Syscall6(
+		unix.SYS___SYSCTL,
 		uintptr(unsafe.Pointer(&mib[0])),
 		uintptr(len(mib)),
 		uintptr(unsafe.Pointer(&buf[0])),

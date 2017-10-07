@@ -5,6 +5,7 @@ package system
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"strconv"
 
 	"path"
@@ -81,6 +82,14 @@ func (sfs *SysctlFS) Gather(acc telegraf.Accumulator) error {
 
 	acc.AddFields("linux_sysctl_fs", fields, nil)
 	return nil
+}
+
+func GetHostProc() string {
+	procPath := "/proc"
+	if os.Getenv("HOST_PROC") != "" {
+		procPath = os.Getenv("HOST_PROC")
+	}
+	return procPath
 }
 
 func init() {

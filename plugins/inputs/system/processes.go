@@ -27,7 +27,6 @@ type procReader func(filename string) ([]byte, error)
 
 type Processes struct {
 	execPS       func() ([]byte, error)
-	getHostProc  func() string
 	readProcFile procReader
 
 	forcePS   bool
@@ -75,14 +74,6 @@ func (p *Processes) Gather(acc telegraf.Accumulator) error {
 
 	acc.AddGauge("processes", fields, nil)
 	return nil
-}
-
-func GetHostProc() string {
-	procPath := "/proc"
-	if os.Getenv("HOST_PROC") != "" {
-		procPath = os.Getenv("HOST_PROC")
-	}
-	return procPath
 }
 
 // Gets empty fields of metrics based on the OS

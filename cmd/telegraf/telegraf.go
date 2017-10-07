@@ -56,7 +56,7 @@ var fAggregatorFilters = flag.String("aggregator-filter", "",
 var fProcessorFilters = flag.String("processor-filter", "",
 	"filter the processors to enable, separator is :")
 var fUsage = flag.String("usage", "",
-	"print usage for a plugin, ie, 'telegraf -usage mysql'")
+	"print usage for a plugin, ie, 'telegraf --usage mysql'")
 var fService = flag.String("service", "",
 	"operate on the service")
 var fSignal = flag.String("s", "", `avalible values are:
@@ -66,7 +66,9 @@ var fSignal = flag.String("s", "", `avalible values are:
 
 // Telegraf version, populated linker.
 //   ie, -ldflags "-X main.version=`git describe --always --tags`"
+
 var (
+	nextVersion = "1.5.0"
 	version string
 	commit  string
 	branch  string
@@ -154,7 +156,7 @@ Examples:
   telegraf --input-filter cpu --output-filter influxdb config
 
   # run a single telegraf collection, outputing metrics to stdout
-  telegraf --config telegraf.conf -test
+  telegraf --config telegraf.conf --test
 
   # run telegraf with all plugins defined in config file
   telegraf --config telegraf.conf
@@ -202,6 +204,16 @@ func reloadLoop(
 			glog.Fatal("Error: no inputs found, did you provide a valid config file?")
 		}
 
+		if int64(c.Agent.Interval.Duration) <= 0 {
+			glog.Fatalf("Agent interval must be positive, found %s",
+				c.Agent.Interval.Duration)
+		}
+
+		if int64(c.Agent.FlushInterval.Duration) <= 0 {
+			glog.Fatalf("Agent flush_interval must be positive; found %s",
+				c.Agent.Interval.Duration)
+		}
+
 		ag, err := agent.NewAgent(c)
 		if err != nil {
 			glog.Fatal(err.Error())
@@ -242,7 +254,7 @@ func reloadLoop(
 			}
 		}()
 
-		glog.Infof("Starting Telegraf (version %s)\n", version)
+		glog.Infof("Starting Telegraf %s\n", displayVersion())
 		glog.Infof("Loaded outputs: %s", strings.Join(c.OutputNames(), " "))
 		glog.Infof("Loaded inputs: %s", strings.Join(c.InputNames(), " "))
 		glog.Infof("Tags enabled: %s", c.ListTags())
@@ -254,6 +266,13 @@ func reloadLoop(
 func usageExit(rc int) {
 	fmt.Println(usage)
 	os.Exit(rc)
+}
+
+func displayVersion() string {
+	if version == "" {
+		return fmt.Sprintf("v%s~%s", nextVersion, commit)
+	}
+	return "v" + version
 }
 
 func main() {
@@ -280,7 +299,7 @@ func main() {
 	if len(args) > 0 {
 		switch args[0] {
 		case "version":
-			fmt.Printf("Telegraf v%s (git: %s %s)\n", version, branch, commit)
+			fmt.Printf("Telegraf %s (git: %s %s)\n", displayVersion(), branch, commit)
 			return
 		case "config":
 			config.PrintSampleConfig(
@@ -308,7 +327,7 @@ func main() {
 		}
 		return
 	case *fVersion:
-		fmt.Printf("Telegraf v%s (git: %s %s)\n", version, branch, commit)
+		fmt.Printf("Telegraf %s (git: %s %s)\n", displayVersion(), branch, commit)
 		return
 	case *fSampleConfig:
 		config.PrintSampleConfig(
@@ -335,7 +354,7 @@ func main() {
 	t := config.NewConfig()
 	if err := t.LoadConfig(*fConfig); err != nil {
 		glog.Fatalf("load config: %v", err)
-	}
+		}
 
 	// init etcd config
 	cfgfile := config.GetEtcdConfigFile()
@@ -343,7 +362,7 @@ func main() {
 	if err != nil {
 		err := fmt.Errorf("load etcd config err: %v", err)
 		glog.Fatalf("%v", err)
-	}
+		}
 	generic.SetEtcdConfig(cfg)
 
 	glog.V(10).Infof("args: %v", args)
@@ -365,12 +384,12 @@ func parent() {
 		} else {
 			defer func() {
 				err := os.Remove(*fPidfile)
-				if err != nil {
+		if err != nil {
 					glog.Errorf("Unable to remove pidfile: %s", err)
-				}
-			}()
 		}
-	}
+			}()
+			}
+			}
 
 	signals := make(chan os.Signal)
 	signal.Notify(signals, os.Interrupt, syscall.SIGHUP, syscall.SIGTERM, syscall.SIGQUIT)
